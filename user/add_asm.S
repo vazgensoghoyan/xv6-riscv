@@ -32,7 +32,6 @@ set_zero:
 after_removing_newline:
     # ниже полная проверка формата "%d %d"
     la s0, buf
-    li s5, 0    # флаг найден ли первый набор цифр
 
 check_first_digits:
     lb t0, 0(s0)
@@ -42,23 +41,21 @@ check_first_digits:
     blt t0, t1, error_exit
     bgt t0, t2, error_exit
     addi s0, s0, 1
-    li s5, 1
-    j check_first_digits_loop
 
-check_first_digits_loop:
+check_digits_loop:
     lb t0, 0(s0)
+    beqz t0, error_exit      # конец строки до пробела
     li t1, '0'
     li t2, '9'
     blt t0, t1, check_space
     bgt t0, t2, check_space
     addi s0, s0, 1
-    j check_first_digits_loop
+    j check_digits_loop
 
 check_space:
     li t3, ' '
-    bne t0, t3, error_exit
-    addi s0, s0, 1
-    beqz s5, error_exit
+    bne t0, t3, error_exit   # если не пробел
+    addi s0, s0, 1           # пропускаем пробел
 
 check_second_digits:
     lb t0, 0(s0)
@@ -68,20 +65,19 @@ check_second_digits:
     blt t0, t1, error_exit
     bgt t0, t2, error_exit
     addi s0, s0, 1
-    j check_second_digits_loop
 
-check_second_digits_loop:
+check_digits_loop2:
     lb t0, 0(s0)
-    beqz t0, format_ok
+    beqz t0, format_ok        # конец строки
     li t1, '0'
     li t2, '9'
     blt t0, t1, error_exit
     bgt t0, t2, error_exit
     addi s0, s0, 1
-    j check_second_digits_loop
+    j check_digits_loop2
 
 format_ok:
-    # логируем ввод: |buf| без \n
+    # логируем ввод: |buf|
     la a0, fmt_str
     la a1, buf
     call printf
@@ -92,7 +88,7 @@ format_ok:
 
 find_space_split:
     lb t0, 0(s0)
-    beq t0, x0, after_split   # вдруг нет пробела (не должно быть)
+    beq t0, x0, after_split
     li t1, ' '
     bne t0, t1, continue_split
     sb x0, 0(s0)        # заменяем пробел на '\0'
