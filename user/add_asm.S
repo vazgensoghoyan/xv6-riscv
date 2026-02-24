@@ -2,81 +2,131 @@
     buf:        .space 100
     fmt_str:    .asciz "|%s|\n"
     fmt_num:    .asciz "%d\n"
+    msg_error:  .asciz "Error occured\n"
 
 .text
 .global main
 
+# почти полностью повторяем add.c
+
 main:
-    li s0, 0    # i = 0
+    # читаем ввод с помощью gets
+    la a0, buf
+    li a1, 100
+    call gets
 
-read_loop:
-    # - if (i+1 >= 100) break
-    li t0, 99
-    bge s0, t0, read_done
+    # убираем '\n' в конце
+    la t0, buf
 
-    # read(0, &buf[i], 1)
-    li a0, 0    # fd = stdin
-    la t1, buf
-    add a1, t1, s0  # &buf[i]
-    li a2, 1    # size = 1
-    li a7, 5    # sys_read
-    ecall
+remove_newline:
+    lb t1, 0(t0)
+    beqz t1, after_removing_newline
+    li t2, '\n'
+    beq t1, t2, set_zero
+    addi t0, t0, 1
+    j remove_newline
 
-    # - if read <= 0 break
-    blez a0, read_done
+set_zero:
+    sb x0, 0(t0)
 
-    # - if buf[i] == '\n' break
-    lb t2, 0(a1)
-    li t3, 10
-    beq t2, t3, read_done
+after_removing_newline:
+    # ниже полная проверка формата "%d %d"
+    la s0, buf
+    li s5, 0    # флаг найден ли первый набор цифр
 
+check_first_digits:
+    lb t0, 0(s0)
+    beqz t0, error_exit
+    li t1, '0'
+    li t2, '9'
+    blt t0, t1, error_exit
+    bgt t0, t2, error_exit
     addi s0, s0, 1
-    j read_loop
+    li s5, 1
+    j check_first_digits_loop
 
-read_done:
-    # buf[i] = '\0'
-    la t1, buf
-    add t1, t1, s0
-    sb zero, 0(t1)
+check_first_digits_loop:
+    lb t0, 0(s0)
+    li t1, '0'
+    li t2, '9'
+    blt t0, t1, check_space
+    bgt t0, t2, check_space
+    addi s0, s0, 1
+    j check_first_digits_loop
 
-    # printf("|%s|\n", buf)
+check_space:
+    li t3, ' '
+    bne t0, t3, error_exit
+    addi s0, s0, 1
+    beqz s5, error_exit
+
+check_second_digits:
+    lb t0, 0(s0)
+    beqz t0, error_exit
+    li t1, '0'
+    li t2, '9'
+    blt t0, t1, error_exit
+    bgt t0, t2, error_exit
+    addi s0, s0, 1
+    j check_second_digits_loop
+
+check_second_digits_loop:
+    lb t0, 0(s0)
+    beqz t0, format_ok
+    li t1, '0'
+    li t2, '9'
+    blt t0, t1, error_exit
+    bgt t0, t2, error_exit
+    addi s0, s0, 1
+    j check_second_digits_loop
+
+format_ok:
+    # логируем ввод: |buf| без \n
     la a0, fmt_str
     la a1, buf
     call printf
 
-    # a = atoi(buf)
+    # разделяем числа
+    la s0, buf
+    la s1, buf          # fst_p
+
+find_space_split:
+    lb t0, 0(s0)
+    beq t0, x0, after_split   # вдруг нет пробела (не должно быть)
+    li t1, ' '
+    bne t0, t1, continue_split
+    sb x0, 0(s0)        # заменяем пробел на '\0'
+    addi s0, s0, 1
+    j after_split
+
+continue_split:
+    addi s0, s0, 1
+    j find_space_split
+
+after_split:
+    mv s2, s0           # snd_p
+
     la a0, buf
     call atoi
-    mv s1, a0   # s1 = a
+    mv s3, a0           # a = atoi(fst_p)
 
-    # p = buf
-    la s2, buf
-
-find_space:
-    lb t0, 0(s2)
-    beqz t0, atoi_b # end string
-    li t1, ' '
-    beq t0, t1, skip_space
-    addi s2, s2, 1
-    j find_space
-
-skip_space:
-    addi s2, s2, 1
-
-atoi_b:
     mv a0, s2
     call atoi
-    mv s3, a0   # s3 = b
+    mv s4, a0           # b = atoi(snd_p)
 
-    # sum = a + b
-    add s4, s1, s3
+    add s5, s3, s4      # sum = a + b
 
-    # printf("%d\n", sum)
     la a0, fmt_num
-    mv a1, s4
-    call printf
+    mv a1, s5
+    call printf         # printf(fmt_num, sum)
 
-    # exit(0)
     li a0, 0
-    li a7, 2
+    li a7, 2            # exit(0)
+    ecall
+
+error_exit:
+    la a0, msg_error
+    call printf
+    li a0, 1
+    li a7, 2            # exit(1)
     ecall

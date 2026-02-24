@@ -2,6 +2,24 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
+int is_digit(char c) {
+    return '0' <= c && c <= '9';
+}
+
+int check_format(const char* str) {
+    int i = 0;
+    while (is_digit(str[i])) {
+        i++;
+    }
+    if (i == 0 || str[i] != ' ') return 0;
+    i++;
+    if (!is_digit(str[i])) return 0;
+    while (is_digit(str[i])) {
+        i++;
+    }
+    return str[i] == '\0';
+}
+
 int main(int argc, char* argv[]) {
     int MAX_SIZE = 100;
     char buf[MAX_SIZE];
@@ -13,28 +31,28 @@ int main(int argc, char* argv[]) {
         read_count = read(0, &char_in, 1);
 
         if (read_count < 0) {
-            write(2, "Error reading input\n", 20);
+            printf("Error reading input\n");
             exit(1);
         }
-        if(read_count == 0) break; // EOF
+        if (read_count == 0) break; // eof
 
         buf[i] = char_in;
-        if(char_in == '\n') break;
+        if (char_in == '\n') break;
     }
     buf[i] = '\0';
 
-    printf("|%s|\n", buf);
+    if (!check_format(buf)) {
+        printf("Invalid input format\n");
+        exit(1);
+    }
+
+    printf("|%s|\n", buf); // логируем по заданию
 
     char * fst_p = buf;
     char* snd_p = buf;
     
-    while (*snd_p && *snd_p != ' ') snd_p++;
-    
-    if (*snd_p == '\0') {
-        write(2, "Expected two integers separated by space\n", 42);
-        exit(1);
-    }
-
+    // уже имеем корректный формат
+    while (*snd_p != ' ') snd_p++;
     *snd_p = '\0'; // разделяем числа
     snd_p++;
 
