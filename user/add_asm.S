@@ -121,8 +121,10 @@ after_split:
     ecall
 
 error_exit:
-    la a0, msg_error
-    call printf
+    li a0, 2              # fd = 2 (stderr)
+    la a1, msg_error      # строка ошибки
+    call fprintf
+
     li a0, 1
-    li a7, 2            # exit(1)
+    li a7, 2              # exit(1)
     ecall

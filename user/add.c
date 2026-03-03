@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
         read_count = read(0, &char_in, 1);
 
         if (read_count < 0) {
-            printf("Error reading input\n");
+            fprintf(2, "Error reading input\n");
             exit(1);
         }
         if (read_count == 0) break; // eof
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     buf[i] = '\0';
 
     if (!check_format(buf)) {
-        printf("Invalid input format\n");
+        fprintf(2, "Invalid input format\n");
         exit(1);
     }
 
