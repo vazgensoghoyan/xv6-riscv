@@ -7,14 +7,14 @@ int main(int argc, char *argv[]) {
     int pipefd[2];
     
     if (pipe(pipefd) < 0) {
-        fprintf(2, "pipe failed\n");
+        fprintf(2, "pipe error occured\n");
         exit(1);
     }
     
     int pid = fork();
 
     if (pid < 0) {
-        fprintf(2, "fork failed\n");
+        fprintf(2, "fork error occured\n");
         close(pipefd[0]);
         close(pipefd[1]);
         exit(1);
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
         close(0); // closed stdin
         
         if (dup(pipefd[0]) < 0) {
-            fprintf(2, "dup failed\n");
+            fprintf(2, "dup error occured\n");
             close(pipefd[0]);
             exit(1);
         }
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
         char *wc_args[] = { "/wc", 0 };
         exec("/wc", wc_args);
 
-        fprintf(2, "exec failed\n");
+        fprintf(2, "exec error occured\n");
         exit(1);
     }
 
@@ -49,13 +49,13 @@ int main(int argc, char *argv[]) {
         int len = strlen(arg);
                 
         if (write(pipefd[1], arg, len) != len) {
-            fprintf(2, "write failed\n");
+            fprintf(2, "write error occured\n");
             close(pipefd[1]);
             exit(1);
         }
 
         if (write(pipefd[1], "\n", 1) != 1) {
-            fprintf(2, "write failed\n");
+            fprintf(2, "write error occured\n");
             close(pipefd[1]);
             exit(1);
         }
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 
     int status;
     if (wait(&status) < 0) {
-        fprintf(2, "wait failed\n");
+        fprintf(2, "wait error occured\n");
         exit(1);
     }
 

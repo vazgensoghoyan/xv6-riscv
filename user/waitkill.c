@@ -3,20 +3,23 @@
 #include "user/user.h"
 
 int main(int argc, char* argv[]) {
-
-    if (argc != 2)
-        goto wrong_format;
+    if (argc != 2) {
+        fprintf(2, "wrong format: expected 'waitkill [wait|kill]'\n");
+        exit(1);
+    }
 
     int is_wait = strcmp(argv[1], "wait") == 0;
     int is_kill = strcmp(argv[1], "kill") == 0;
 
-    if (!is_wait && !is_kill)
-        goto wrong_format;
+    if (!is_wait && !is_kill) {
+        fprintf(2, "wrong format: expected 'waitkill [wait|kill]'\n");
+        exit(1);
+    }
 
     int pid = fork();
 
     if (pid < 0) {
-        fprintf(2, "fork failed\n");
+        fprintf(2, "fork error occured\n");
         exit(1);
     }
 
@@ -41,7 +44,7 @@ int main(int argc, char* argv[]) {
     int waited_pid = wait(&waited_exit_code);
 
     if (waited_pid < 0) {
-        fprintf(2, "wait failed\n");
+        fprintf(2, "wait error occured\n");
         exit(1);
     }
 
@@ -49,8 +52,4 @@ int main(int argc, char* argv[]) {
     printf("Waited procces exit code: %d\n", waited_exit_code);
 
     exit(0);
-
-wrong_format:
-    fprintf(2, "wrong format: expected 'waitkill [wait|kill]'\n");
-    exit(1);
 }
