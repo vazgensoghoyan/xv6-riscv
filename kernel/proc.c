@@ -10,6 +10,83 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+// my part!
+
+#include "procinfo.h"
+
+int count_proc() {
+  struct proc* p;
+  int count = 0;
+
+  for (p = proc; p < &p[NPROC]; ++p) {
+    acquire(&p->lock); // locking while working with proc
+    if (p->state != UNUSED) {
+      ++count;
+    }
+    release(&p->lock);
+  }
+  return count;
+}
+
+uint64 sys_ps_listinfo(void) {
+  struct procinfo *plist;
+  int lim;
+
+  argaddr(0, (uint64 *)&plist); // reading from registers
+  argint(1, &lim);
+
+  if (plist == 0) return count_proc();
+
+  struct proc *p;
+  int written = 0;
+
+  for (p = proc; p < &proc[NPROC]; ++p) {
+    if (written >= lim) { // buffer overflow
+      return -1;
+    }
+
+    acquire(&p->lock); // locking
+
+    if (p->state == UNUSED) {
+      release(&p->lock);
+      continue;
+    }
+
+    struct procinfo info;
+
+    info.state = (enum u_procstate)p->state; // they are identical, only U_ prefix diff
+
+    info.pid = p->pid;
+
+    info.parent_pid = 0;
+
+    if (p->parent) {
+      acquire(&wait_lock); // locking everything to work with parent
+      info.parent_pid = p->parent->pid;
+      release(&wait_lock);
+    }
+
+    safestrcpy(info.name, p->name, sizeof(info.name));
+
+    release(&p->lock);
+
+    pagetable_t pt = myproc()->pagetable;
+    uint64 user_addr = (uint64)plist + written * sizeof(struct procinfo);
+
+    int copyout_res = copyout(pt, user_addr, (char*)&info, sizeof(info));
+
+    if(copyout_res < 0) { // wrong user space address given
+      return -2;
+    }
+
+    ++written;
+  }
+
+  return written;
+}
+
+// my part ended!
+
 struct proc *initproc;
 
 int nextpid = 1;
