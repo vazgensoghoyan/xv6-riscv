@@ -10,6 +10,14 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+// MOVED 'wait_lock' DEFINITION TO HERE, BECAUSE IT IS USED IN ps_listinfo
+
+// helps ensure that wakeups of wait()ing
+// parents are not lost. helps obey the
+// memory model when using p->parent.
+// must be acquired before any p->lock.
+struct spinlock wait_lock;
+
 // my part!
 
 #include "procinfo.h"
@@ -97,11 +105,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-// helps ensure that wakeups of wait()ing
-// parents are not lost. helps obey the
-// memory model when using p->parent.
-// must be acquired before any p->lock.
-struct spinlock wait_lock;
+// FROM HERE 'wait_lock' DEFINITION WAS MOVED
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
