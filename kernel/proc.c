@@ -23,17 +23,38 @@ struct spinlock wait_lock;
 #include "procinfo.h"
 
 int count_proc() {
-  struct proc* p;
   int count = 0;
-
-  for (p = proc; p < &p[NPROC]; ++p) {
-    acquire(&p->lock); // locking while working with proc
-    if (p->state != UNUSED) {
-      ++count;
+  for (int i = 0; i < NPROC; i++) {
+    if (proc[i].state != UNUSED) {
+      count++;
     }
-    release(&p->lock);
   }
   return count;
+}
+
+int get_procinfo(struct procinfo* info, struct proc* p) {
+  acquire(&p->lock); // locking
+
+  if (p->state == UNUSED) {
+    release(&p->lock);
+    return -1;
+  }
+
+  info->state = (enum u_procstate)p->state; // they are identical, only U_ prefix diff
+  info->pid = p->pid;
+  info->parent_pid = 0;
+
+  if (p->parent) {
+    acquire(&wait_lock); // locking everything to work with parent
+    info->parent_pid = p->parent->pid;
+    release(&wait_lock);
+  }
+
+  safestrcpy(info->name, p->name, sizeof(info->name));
+
+  release(&p->lock);
+
+  return 0;
 }
 
 uint64 sys_ps_listinfo(void) {
@@ -53,36 +74,15 @@ uint64 sys_ps_listinfo(void) {
       return -1;
     }
 
-    acquire(&p->lock); // locking
-
-    if (p->state == UNUSED) {
-      release(&p->lock);
+    struct procinfo info;
+    if (get_procinfo(&info, p) == -1) { // then p->state is UNUSED
       continue;
     }
-
-    struct procinfo info;
-
-    info.state = (enum u_procstate)p->state; // they are identical, only U_ prefix diff
-
-    info.pid = p->pid;
-
-    info.parent_pid = 0;
-
-    if (p->parent) {
-      acquire(&wait_lock); // locking everything to work with parent
-      info.parent_pid = p->parent->pid;
-      release(&wait_lock);
-    }
-
-    safestrcpy(info.name, p->name, sizeof(info.name));
-
-    release(&p->lock);
 
     pagetable_t pt = myproc()->pagetable;
     uint64 user_addr = (uint64)plist + written * sizeof(struct procinfo);
 
     int copyout_res = copyout(pt, user_addr, (char*)&info, sizeof(info));
-
     if(copyout_res < 0) { // wrong user space address given
       return -2;
     }
