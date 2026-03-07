@@ -3,6 +3,7 @@
 struct stat;
 
 // my ps_listinfo
+enum u_procstate;
 struct procinfo;
 int ps_listinfo(struct procinfo* plist, int lim);
 
