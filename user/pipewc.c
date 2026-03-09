@@ -2,6 +2,28 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
+int write_all(int fd, const char *buf, int len) {
+    int total = 0;
+
+    while (total < len) {
+        int written = write(fd, buf + total, len - total);
+
+        if (written < 0)
+            return -1;
+
+        total += written;
+    }
+
+    return total;
+}
+
+void safe_close(int fd) {
+    if (close(fd) < 0) {
+        fprintf(2, "close error occured\n");
+        exit(1);
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     int pipefd[2];
@@ -15,33 +37,24 @@ int main(int argc, char *argv[]) {
 
     if (pid < 0) {
         fprintf(2, "fork error occured\n");
-        close(pipefd[0]);
-        close(pipefd[1]);
+        safe_close(pipefd[0]);
+        safe_close(pipefd[1]);
         exit(1);
     }
 
     if (pid == 0) { // child
 
-        if (close(pipefd[1]) < 0) { // closed writing
-            fprintf(2, "close error occured\n");
-            exit(1);
-        }
+        safe_close(pipefd[1]);  // closed writing
 
-        if (close(0) < 0) { // closed stdin
-            fprintf(2, "close error occured\n");
-            exit(1);
-        }
-        
+        safe_close(0); // closed stdin
+
         if (dup(pipefd[0]) < 0) {
             fprintf(2, "dup error occured\n");
-            close(pipefd[0]);
+            safe_close(pipefd[0]);
             exit(1);
         }
 
-        if (close(pipefd[0]) < 0) {
-            fprintf(2, "close error occured\n");
-            exit(1);
-        }
+        safe_close(pipefd[0]);
 
         char *wc_args[] = { "/wc", 0 };
         exec("/wc", wc_args);
@@ -52,51 +65,26 @@ int main(int argc, char *argv[]) {
 
     // parent
 
-    if (close(pipefd[0]) < 0) {  // closed reading
-        fprintf(2, "close error occured\n");
-        exit(1);
-    }
+    safe_close(pipefd[0]); // closed reading
 
     for (int i = 1; i < argc; i++) {
         char *arg = argv[i];
         int len = strlen(arg);
 
-        int total_written = 0;
-
-        while (total_written < len) {
-            int written = write(pipefd[1], arg + total_written, len - total_written);
-
-            if (written < 0) {
-                fprintf(2, "write error occured\n");
-                if (close(pipefd[1]) < 0)
-                    fprintf(2, "close error occured\n");
-                exit(1);
-            }
-
-            total_written += written;
+        if (write_all(pipefd[1], arg, len) < 0) {
+            fprintf(2, "write error occured\n");
+            safe_close(pipefd[1]);
+            exit(1);
         }
 
-        char *newline = "\n";
-        total_written = 0;
-
-        while (total_written < 1) {
-            int written = write(pipefd[1], newline + total_written, 1 - total_written);
-
-            if (written < 0) {
-                fprintf(2, "write error occured\n");
-                if (close(pipefd[1]) < 0)
-                    fprintf(2, "close error occured\n");
-                exit(1);
-            }
-
-            total_written += written;
+        if (write_all(pipefd[1], "\n", 1) < 0) {
+            fprintf(2, "write error occured\n");
+            safe_close(pipefd[1]);
+            exit(1);
         }
     }
 
-    if (close(pipefd[1]) < 0) {  // closed writing
-        fprintf(2, "close error occured\n");
-        exit(1);
-    }
+    safe_close(pipefd[1]); // closed writing
 
     int status;
     if (wait(&status) < 0) {
