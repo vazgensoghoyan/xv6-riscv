@@ -64,6 +64,12 @@ fileclose(struct file *f)
   acquire(&ftable.lock);
   if(f->ref < 1)
     panic("fileclose");
+
+  if (f->type == FD_MUTEX) {
+    if (holdingsleep(f->mutex))
+      releasesleep(f->mutex);
+  }
+
   if(--f->ref > 0){
     release(&ftable.lock);
     return;
@@ -108,8 +114,7 @@ filestat(struct file *f, uint64 addr)
 int
 fileread(struct file *f, uint64 addr, int n)
 {
-  if(f->type == FD_MUTEX)
-    return -1;
+  // rmk: mutex is not readable (m->readable == 0)
 
   int r = 0;
 
@@ -139,8 +144,7 @@ fileread(struct file *f, uint64 addr, int n)
 int
 filewrite(struct file *f, uint64 addr, int n)
 {
-  if(f->type == FD_MUTEX)
-    return -1;
+  // rmk: mutex is not writable (m->writable == 0)
 
   int r, ret = 0;
 

@@ -36,9 +36,6 @@ int mutexclose(struct sleeplock *lk) {
   if(lk == 0)
     panic("mutexclose");
 
-  if (holdingsleep(lk))
-    releasesleep(lk);
-
   kfree((char*)lk);
   return 0;
 }
