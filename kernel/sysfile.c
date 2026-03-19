@@ -51,6 +51,53 @@ fdalloc(struct file *f)
   return -1;
 }
 
+// MY PART, mutexes
+
+uint64 sys_mutex(void) {
+  struct file *mutex = mutexalloc();
+  if (mutex == 0)
+    return -1;
+
+  int fd = -1;
+  if ((fd = fdalloc(mutex)) < 0) {
+    fileclose(mutex);
+    return -1;
+  }
+
+  return fd;
+}
+
+uint64 sys_mutex_lock(void) {
+  struct file *f;
+
+  if (argfd(0, 0, &f) < 0)
+    return -1;
+
+  if (f->type != FD_MUTEX)
+    return -1;
+
+  acquiresleep(f->mutex);
+  return 0;
+}
+
+uint64 sys_mutex_unlock(void) {
+  struct file *f;
+
+  if (argfd(0, 0, &f) < 0)
+    return -1;
+
+  if (f->type != FD_MUTEX)
+    return -1;
+
+  if (!holdingsleep(f->mutex))
+    return -1;
+
+  releasesleep(f->mutex);
+  return 0;
+}
+
+// MY PART ended
+
 uint64
 sys_dup(void)
 {

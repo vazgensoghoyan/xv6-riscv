@@ -10,23 +10,24 @@
 
 // (just repeated includes from pipe.c)
 
-int mutexalloc(struct file **f) {
+struct file* mutexalloc(void) {
+  struct file* f;
   struct sleeplock *lk;
 
-  if ((*f = filealloc()) == 0)
-    return -1;
+  if ((f = filealloc()) == 0)
+    return 0;
 
   if ((lk = (struct sleeplock*)kalloc()) == 0) {
-    fileclose(*f);
-    return -1;
+    fileclose(f);
+    return 0;
   }
 
   initsleeplock(lk, "mutex");
 
-  (*f)->type = FD_MUTEX;
-  (*f)->readable = 0;
-  (*f)->writable = 0;
-  (*f)->mutex = lk;
+  f->type = FD_MUTEX;
+  f->readable = 0;
+  f->writable = 0;
+  f->mutex = lk;
 
   return f;
 }
@@ -34,6 +35,9 @@ int mutexalloc(struct file **f) {
 int mutexclose(struct sleeplock *lk) {
   if(lk == 0)
     panic("mutexclose");
+
+  if (holdingsleep(lk))
+    releasesleep(lk);
 
   kfree((char*)lk);
   return 0;

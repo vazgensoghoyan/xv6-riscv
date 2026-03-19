@@ -67,8 +67,8 @@ void            begin_op(void);
 void            end_op(void);
 
 // mutex.c
-int mutexalloc(struct file**);
-int mutexclose(struct sleeplock*);
+struct file*    mutexalloc(void);
+int             mutexclose(struct sleeplock*);
 
 // pipe.c
 int             pipealloc(struct file**, struct file**);
