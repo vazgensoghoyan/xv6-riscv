@@ -25,6 +25,11 @@ char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
 
+// my mutex calls
+int mutex(void);
+int mutex_lock(int);
+int mutex_unlock(int);
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);
