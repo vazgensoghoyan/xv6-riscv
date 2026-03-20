@@ -5,13 +5,14 @@
 // Печать аргументов с возможной блокировкой мьютекса
 void print_args(int mutex_fd, int argc, char *argv[]) {
     int pid = getpid();
+
     for (int i = 1; i < argc; i++) {
-        char *arg = argv[i];
-        for (int j = 0; arg[j] != '\0'; j++) {
+        for (int j = 0; argv[i][j] != '\0'; j++) {
+
             if (mutex_fd >= 0)
                 mutex_lock(mutex_fd); // захват перед строкой
 
-            printf("%d: arg %d, char '%c'\n", pid, i, arg[j]);
+            printf("%d: arg %d, char '%c'\n", pid, i, argv[i][j]);
 
             if (mutex_fd >= 0)
                 mutex_unlock(mutex_fd); // освобождение после строки
@@ -24,52 +25,39 @@ void fail() {
     exit(1);
 }
 
-void test_without_mutex(int argc, char* argv[]) {
-    printf("\n=== Without mutex ===\n");
+void test(int argc, char* argv[], int with_mutex) {
+
+    if (with_mutex)
+        printf("\n=== With mutex ===\n");
+    else
+        printf("\n=== Without mutex ===\n");
+
     int pid1, pid2;
+    int mutex_fd = -1;
+
+    if (with_mutex) {
+        mutex_fd = mutex();
+        if (mutex_fd < 0) fail();
+    }
 
     if ((pid1 = fork()) < 0) fail();
     if (pid1 == 0) {
-        print_args(-1, argc, argv);
+        print_args(mutex_fd, argc, argv);
+        if (with_mutex) close(mutex_fd);
         exit(0);
     }
 
     if ((pid2 = fork()) < 0) fail();
     if (pid2 == 0) {
-        print_args(-1, argc, argv);
+        print_args(mutex_fd, argc, argv);
+        if (with_mutex) close(mutex_fd);
         exit(0);
     }
 
     wait(0);
     wait(0);
 
-    printf("\n");
-}
-
-void test_with_mutex(int argc, char* argv[]) {
-    printf("\n=== With mutex ===\n");
-
-    int mfd = mutex();
-    int pid1, pid2;
-
-    if (mfd < 0) fail();
-
-    if ((pid1 = fork()) < 0) fail();
-    if (pid1 == 0) {
-        print_args(mfd, argc, argv);
-        exit(0);
-    }
-
-    if ((pid2 = fork()) < 0) fail();
-    if (pid2 == 0) {
-        print_args(mfd, argc, argv);
-        exit(0);
-    }
-
-    wait(0);
-    wait(0);
-
-    close(mfd);
+    if (with_mutex) close(mutex_fd); // закрываем мьютекс в последний раз
 
     printf("\n");
 }
@@ -80,8 +68,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    test_without_mutex(argc, argv);    
-    test_with_mutex(argc, argv);    
+    test(argc, argv, 0); // without mutex    
+    test(argc, argv, 1); // with mutex
 
     exit(0);
 }
