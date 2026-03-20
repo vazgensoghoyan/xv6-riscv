@@ -21,7 +21,7 @@ struct file* mutexalloc(void) {
     fileclose(f);
     return 0;
   }
-  printf("KERNEL LOG: mutexclose: allocated %p\n", lk);
+  printf("KERNEL LOG: mutexalloc: allocated %p\n", lk);
 
   initsleeplock(lk, "mutex");
 

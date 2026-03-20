@@ -3,9 +3,11 @@
 #include "user.h"
 
 static int tests_passed = 0;
+static int tests_failed = 0;
 
 static void failed(const char* msg) {
     printf("FAILED: %s\n", msg);
+    tests_failed++;
 }
 
 static void passed(void) {
@@ -53,15 +55,13 @@ void test_cross_unlock(void) {
 
     if (pid == 0) {
         int r = mutex_unlock(m);
-        if (r == 0) {
-            failed("child unlocked other's mutex\n");
-            exit(1);
-        }
+        if (r == 0) exit(1);
         exit(0);
     }
 
     int status;
     ASSERT(wait(&status) == pid, "wait failed");
+    ASSERT(status == 0, "child unlocked other's mutex\n");
 
     mutex_unlock(m);
     close(m);
@@ -76,8 +76,7 @@ void test_close_locked(void) {
     ASSERT(m >= 0, "mutex create failed");
 
     mutex_lock(m);
-
-    close(m);
+    ASSERT(close(m) == 0, "close failed");
 
     PASSED();
 }
@@ -156,37 +155,64 @@ void test_stress(void) {
     PASSED();
 }
 
-void test_exit_holding_lock(void) {
-    printf("\n--- test_exit_holding_lock ---\n");
+void test_exit_while_waiter(void) {
+    printf("\n--- test_exit_while_waiter ---\n");
+
     int m = mutex();
     ASSERT(m >= 0, "mutex create");
-    int pid = fork();
-    ASSERT(pid >= 0, "fork");
-    if (pid == 0) {
+
+    int pid_holder = fork();
+    ASSERT(pid_holder >= 0, "fork holder");
+
+    if (pid_holder == 0) {
         mutex_lock(m);
+        pause(1);
         exit(0);
     }
-    wait(0);
-    mutex_lock(m);
-    mutex_unlock(m);
+
+    pause(1);
+
+    int pid_waiter = fork();
+    ASSERT(pid_waiter >= 0, "fork waiter");
+
+    if (pid_waiter == 0) {
+        mutex_lock(m);
+        mutex_unlock(m);
+        exit(0);
+    }
+
+    int status;
+    ASSERT(wait(&status) == pid_holder, "wait holder failed");
+    ASSERT(wait(&status) == pid_waiter, "wait waiter failed");
+
     close(m);
+
     PASSED();
 }
 
 void test_close_by_other(void) {
     printf("\n--- test_close_by_other ---\n");
+
     int m = mutex();
     ASSERT(m >= 0, "mutex create");
+
+    mutex_lock(m);
+
     int pid = fork();
-    ASSERT(pid >= 0, "fork");
+    ASSERT(pid >= 0, "fork failed");
+
     if (pid == 0) {
-        close(m);
+        if (close(m) != 0) exit(1);
         exit(0);
     }
-    wait(0);
-    mutex_lock(m);
+
+    int status;
+    ASSERT(wait(&status) == pid, "wait failed");
+    ASSERT(status == 0, "child close failed");
+
     mutex_unlock(m);
     close(m);
+
     PASSED();
 }
 
@@ -198,10 +224,11 @@ int main(void) {
     test_close_locked();
     test_fork_shared();
     test_stress();
-    test_exit_holding_lock();
+    test_exit_while_waiter();
     test_close_by_other();
 
     printf("\n%d TESTS PASSED\n", tests_passed);
+    printf("%d TESTS FAILED\n", tests_failed);
 
     printf("\n===== ALL TESTS DONE =====\n");
 
