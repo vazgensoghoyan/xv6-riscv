@@ -15,8 +15,9 @@ char* state_to_string(int state) {
 }
 
 void print_procinfo(struct procinfo* info) {
-    fprintf(1, "PID: %d, Parent PID: %d, State: %s, Name: %s\n",
-        info->pid, info->parent_pid, state_to_string(info->state), info->name);
+    fprintf(1, "PID: %d, Parent PID: %d (%s), State: %s, Name: %s\n",
+        info->pid, info->parent_pid, info->parent_name,
+        state_to_string(info->state), info->name);
 }
 
 int try_ps_listinfo_stack(int lim) {

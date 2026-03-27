@@ -33,8 +33,10 @@ int count_proc() {
 }
 
 int get_procinfo(struct procinfo* info, struct proc* p) {
-  acquire(&p->lock); // locking
+  struct proc *parent = 0;
+  int parent_pid = 0;
 
+  acquire(&p->lock); // locking
   if (p->state == UNUSED) {
     release(&p->lock);
     return -1;
@@ -42,17 +44,20 @@ int get_procinfo(struct procinfo* info, struct proc* p) {
 
   info->state = (enum u_procstate)p->state; // they are identical, only U_ prefix diff
   info->pid = p->pid;
-  info->parent_pid = 0;
-
-  if (p->parent) {
-    acquire(&wait_lock); // locking everything to work with parent
-    info->parent_pid = p->parent->pid;
-    release(&wait_lock);
-  }
-
   safestrcpy(info->name, p->name, sizeof(info->name));
-
   release(&p->lock);
+
+  acquire(&wait_lock);  // locking everything to work with parent
+  parent = p->parent;
+  if (parent) {
+    parent_pid = parent->pid;
+    safestrcpy(info->parent_name, parent->name, sizeof(info->parent_name));
+  } else {
+    info->parent_name[0] = 0;
+  }
+  release(&wait_lock);
+
+  info->parent_pid = parent_pid;
 
   return 0;
 }
@@ -66,10 +71,9 @@ uint64 sys_ps_listinfo(void) {
 
   if (plist == 0) return count_proc();
 
-  struct proc *p;
   int written = 0;
 
-  for (p = proc; p < &proc[NPROC]; ++p) {
+  for (struct proc *p = proc; p < &proc[NPROC]; p++) {
     if (written >= lim) { // buffer overflow
       return -1;
     }
@@ -82,8 +86,7 @@ uint64 sys_ps_listinfo(void) {
     pagetable_t pt = myproc()->pagetable;
     uint64 user_addr = (uint64)plist + written * sizeof(struct procinfo);
 
-    int copyout_res = copyout(pt, user_addr, (char*)&info, sizeof(info));
-    if(copyout_res < 0) { // wrong user space address given
+    if (copyout(pt, user_addr, (char*)&info, sizeof(info)) < 0) { // wrong user space address given
       return -2;
     }
 

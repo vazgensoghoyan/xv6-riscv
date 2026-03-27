@@ -12,5 +12,6 @@ struct procinfo {
 
     enum u_procstate state;      // Process state
     
-    char name[16];               // Process name (debugging)
+    char name[16];               // Process name
+    char parent_name[16];        // Parent process name
 };
