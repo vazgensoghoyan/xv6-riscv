@@ -2,6 +2,11 @@
 
 struct stat;
 
+// my ps_listinfo
+enum u_procstate;
+struct procinfo;
+int ps_listinfo(struct procinfo* plist, int lim);
+
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));

@@ -10,6 +10,96 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+// MOVED 'wait_lock' DEFINITION TO HERE, BECAUSE IT IS USED IN ps_listinfo
+
+// helps ensure that wakeups of wait()ing
+// parents are not lost. helps obey the
+// memory model when using p->parent.
+// must be acquired before any p->lock.
+struct spinlock wait_lock;
+
+// my part!
+
+#include "procinfo.h"
+
+int count_proc() {
+  int count = 0;
+  for (int i = 0; i < NPROC; i++) {
+    if (proc[i].state != UNUSED) {
+      count++;
+    }
+  }
+  return count;
+}
+
+int get_procinfo(struct procinfo* info, struct proc* p) {
+  struct proc *parent = 0;
+  int parent_pid = 0;
+
+  acquire(&p->lock); // locking
+  if (p->state == UNUSED) {
+    release(&p->lock);
+    return -1;
+  }
+
+  info->state = (enum u_procstate)p->state; // they are identical, only U_ prefix diff
+  info->pid = p->pid;
+  safestrcpy(info->name, p->name, sizeof(info->name));
+  release(&p->lock);
+
+  acquire(&wait_lock);  // locking everything to work with parent
+  parent = p->parent;
+  if (parent) {
+    parent_pid = parent->pid;
+    safestrcpy(info->parent_name, parent->name, sizeof(info->parent_name));
+  } else {
+    info->parent_name[0] = 0;
+  }
+  release(&wait_lock);
+
+  info->parent_pid = parent_pid;
+
+  return 0;
+}
+
+uint64 sys_ps_listinfo(void) {
+  uint64 uptr;
+  int lim;
+
+  argaddr(0, &uptr);
+  argint(1, &lim);
+
+  struct procinfo *plist = (struct procinfo*)uptr;
+
+  if (plist == 0) return count_proc();
+
+  int written = 0;
+
+  for (struct proc *p = proc; p < &proc[NPROC]; p++) {
+    if (written >= lim) { // buffer overflow
+      return -1;
+    }
+
+    struct procinfo info;
+    if (get_procinfo(&info, p) == -1) { // then p->state is UNUSED
+      continue;
+    }
+
+    pagetable_t pt = myproc()->pagetable;
+    uint64 user_addr = uptr + written * sizeof(struct procinfo);
+
+    if (copyout(pt, user_addr, (char*)&info, sizeof(info)) < 0) { // wrong user space address given
+      return -2;
+    }
+
+    ++written;
+  }
+
+  return written;
+}
+
+// my part ended!
+
 struct proc *initproc;
 
 int nextpid = 1;
@@ -20,11 +110,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-// helps ensure that wakeups of wait()ing
-// parents are not lost. helps obey the
-// memory model when using p->parent.
-// must be acquired before any p->lock.
-struct spinlock wait_lock;
+// FROM HERE 'wait_lock' DEFINITION WAS MOVED
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
