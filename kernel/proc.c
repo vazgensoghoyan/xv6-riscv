@@ -63,11 +63,13 @@ int get_procinfo(struct procinfo* info, struct proc* p) {
 }
 
 uint64 sys_ps_listinfo(void) {
-  struct procinfo *plist;
+  uint64 uptr;
   int lim;
 
-  argaddr(0, (uint64 *)&plist); // reading from registers
+  argaddr(0, &uptr);
   argint(1, &lim);
+
+  struct procinfo *plist = (struct procinfo*)uptr;
 
   if (plist == 0) return count_proc();
 
@@ -84,7 +86,7 @@ uint64 sys_ps_listinfo(void) {
     }
 
     pagetable_t pt = myproc()->pagetable;
-    uint64 user_addr = (uint64)plist + written * sizeof(struct procinfo);
+    uint64 user_addr = uptr + written * sizeof(struct procinfo);
 
     if (copyout(pt, user_addr, (char*)&info, sizeof(info)) < 0) { // wrong user space address given
       return -2;

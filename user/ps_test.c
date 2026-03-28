@@ -15,9 +15,9 @@ char* state_to_string(int state) {
 }
 
 void print_procinfo(struct procinfo* info) {
-    fprintf(1, "PID: %d, Parent PID: %d (%s), State: %s, Name: %s\n",
-        info->pid, info->parent_pid, info->parent_name,
-        state_to_string(info->state), info->name);
+    fprintf(1, "  Name: %s, PID: %d, Parent PID: %d, Parent name: %s, State: %s\n",
+        info->name, info->pid, info->parent_pid,
+        info->parent_name, state_to_string(info->state));
 }
 
 int main(int argc, char* argv[]) {
@@ -25,12 +25,12 @@ int main(int argc, char* argv[]) {
     printf("TESTING 'ps_listinfo' SYSCALL STARTED\n");
 
     // NULL call -> getting count of processes
-    int n;
-    n = ps_listinfo((struct procinfo*)0, 0);
-    if (n >= 0) {
-        printf("1) [PASS] Number of processes (plist==NULL): %d\n", n);
+    int count = ps_listinfo((struct procinfo*)0, 0);
+
+    if (count >= 0) {
+        printf("1) [PASS] Number of processes (plist==NULL): %d\n", count);
     } else {
-        printf("1) [WRONG] Got %d\n", n);
+        printf("1) [WRONG] Got %d\n", count);
     }
 
     // Small buffer
@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
     int small_lim = 2;
 
     struct procinfo infos_1[small_lim];
-    n = ps_listinfo(infos_1, small_lim);
+    int n = ps_listinfo(infos_1, small_lim);
 
     if (n == -1) {
         printf("2) [PASS] Buffer %d too small\n", small_lim);
@@ -47,20 +47,21 @@ int main(int argc, char* argv[]) {
     }
 
     // Good buffer
-    int good_lim = 2 * n;
+    int good_lim = 5 * count;
     struct procinfo infos_2[good_lim];
     n = ps_listinfo(infos_2, good_lim);
 
-    printf("3) [PASS] returned %d with buffer size %d\n", n, good_lim);
-
     if (n >= 0) {
+        printf("3) [PASS] returned %d with buffer size %d\n", n, good_lim);
         for (int i = 0; i < n; i++) {
             print_procinfo(&infos_2[i]);
         }
+    } else {
+        printf("3) [FAILED] returned %d with buffer size %d\n", n, good_lim);
     }
 
     // Wrong adress
-    struct procinfo* bad_ptr = (struct procinfo*)0x123;
+    struct procinfo* bad_ptr = (struct procinfo*)123;
     n = ps_listinfo(bad_ptr, good_lim);
 
     if (n == -2) {
