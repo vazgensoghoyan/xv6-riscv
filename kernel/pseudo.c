@@ -1,19 +1,28 @@
-#include "kernel/types.h"
-#include "kernel/param.h"
-#include "kernel/memlayout.h"
-#include "kernel/riscv.h"
-#include "kernel/spinlock.h"
-#include "kernel/sleeplock.h"
-#include "kernel/fs.h"
-#include "kernel/file.h"
-#include "kernel/defs.h"
+#include "types.h"
+#include "param.h"
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "memlayout.h"
+#include "riscv.h"
+#include "defs.h"
+#include "proc.h"
 
-static uint64 seed = 1;
-static uint64 total_written = 0;
+struct {
+    struct spinlock lock;
 
-static uint32 lcg_rand(void) {
-    seed = (1664525 * seed + 1013904223);
-    return (uint32)(seed >> 32);
+    uint64 seed;
+    uint64 total_written;
+
+} pseudo;
+
+uint32 lcg_rand(void) {        // на каждый байт lock, неэффективно, но ничего
+    acquire(&pseudo.lock);
+    pseudo.seed = (1664525 * pseudo.seed + 1013904223);
+    uint32 result = (uint32)(pseudo.seed >> 32);
+    release(&pseudo.lock);
+    return result;
 }
 
 int pseudoread(int minor, int user_dst, uint64 addr, int n) {
@@ -43,8 +52,14 @@ int pseudoread(int minor, int user_dst, uint64 addr, int n) {
         case PSEUDO_NULLSTAT:
             if(n != sizeof(uint64))
                 return -1;
-            if(either_copyout(user_dst, addr, (char*)&total_written, sizeof(uint64)) < 0)
+
+            acquire(&pseudo.lock);
+            uint64 val = pseudo.total_written;
+            release(&pseudo.lock);
+
+            if(either_copyout(user_dst, addr, (char*)&val, sizeof(uint64)) < 0)
                 return -1;
+
             return sizeof(uint64);
     }
     return -1;
@@ -62,20 +77,34 @@ int pseudowrite(int minor, int user_src, uint64 addr, int n) {
         case PSEUDO_URANDOM:
             if(n != sizeof(uint64))
                 return -1;
+
             uint64 new_seed;
             if(either_copyin((char*)&new_seed, user_src, addr, sizeof(uint64)) < 0)
                 return -1;
-            seed = new_seed;
+
+            acquire(&pseudo.lock);
+            pseudo.seed = new_seed;
+            release(&pseudo.lock);
+
             return n;
 
         case PSEUDO_NULLSTAT:
-            total_written += n;
+            acquire(&pseudo.lock);
+            pseudo.total_written += n;
+            release(&pseudo.lock);
             return n;
     }
     return -1;
 }
 
 void pseudoinit(void) {
+    initlock(&pseudo.lock, "pseudo");
+
+    acquire(&pseudo.lock);
+    pseudo.seed = 1;
+    pseudo.total_written = 0;
+    release(&pseudo.lock);
+
     devsw[PSEUDO].read = pseudoread;
     devsw[PSEUDO].write = pseudowrite;
 }
