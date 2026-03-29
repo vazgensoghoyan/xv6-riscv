@@ -11,6 +11,20 @@
 
 char *argv[] = { "sh", 0 };
 
+static void open_pseudo(const char* name, int minor) {
+  int fd = open(name, O_RDWR);
+  if(fd < 0){
+    mknod(name, PSEUDO, minor);
+  } else {
+    close(fd);
+    // closing is important as i understood
+    // because otherwise doing 'make qemu' few times
+    // we will get init.c working with same data few times
+    // and therefore this pseudo files will stay opened
+    // therefore console will not work properly
+  }
+}
+
 int
 main(void)
 {
@@ -20,18 +34,11 @@ main(void)
     mknod("console", CONSOLE, 0);
     open("console", O_RDWR);
   }
-  if(open("null", O_RDWR) < 0){
-    mknod("null", PSEUDO, PSEUDO_NULL);
-  }
-  if(open("zero", O_RDWR) < 0){
-    mknod("zero", PSEUDO, PSEUDO_ZERO);
-  }
-  if(open("urandom", O_RDWR) < 0){
-    mknod("urandom", PSEUDO, PSEUDO_URANDOM);
-  }
-  if(open("nullstat", O_RDWR) < 0){
-    mknod("nullstat", PSEUDO, PSEUDO_NULLSTAT);
-  }
+
+  open_pseudo("null", PSEUDO_NULL);
+  open_pseudo("zero", PSEUDO_ZERO);
+  open_pseudo("urandom", PSEUDO_URANDOM);
+  open_pseudo("nullstat", PSEUDO_NULLSTAT);
 
   dup(0);  // stdout
   dup(0);  // stderr
