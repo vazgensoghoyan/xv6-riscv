@@ -20,6 +20,19 @@ main(void)
     mknod("console", CONSOLE, 0);
     open("console", O_RDWR);
   }
+  if(open("null", O_RDWR) < 0){
+    mknod("null", PSEUDO, PSEUDO_NULL);
+  }
+  if(open("zero", O_RDWR) < 0){
+    mknod("zero", PSEUDO, PSEUDO_ZERO);
+  }
+  if(open("urandom", O_RDWR) < 0){
+    mknod("urandom", PSEUDO, PSEUDO_URANDOM);
+  }
+  if(open("nullstat", O_RDWR) < 0){
+    mknod("nullstat", PSEUDO, PSEUDO_NULLSTAT);
+  }
+
   dup(0);  // stdout
   dup(0);  // stderr
 

@@ -41,3 +41,8 @@ struct devsw {
 extern struct devsw devsw[];
 
 #define CONSOLE 1
+#define PSEUDO 2
+#define PSEUDO_NULL 0
+#define PSEUDO_ZERO 1
+#define PSEUDO_URANDOM 2
+#define PSEUDO_NULLSTAT 3
