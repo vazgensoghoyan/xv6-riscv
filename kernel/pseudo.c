@@ -18,12 +18,13 @@ static uint32 lcg_rand(void) {
 
 int pseudoread(int minor, int user_dst, uint64 addr, int n) {
 
+    char buf[64];
+
     switch(minor){
         case PSEUDO_NULL:
             return 0;
 
         case PSEUDO_ZERO:
-            char buf[64];
             for(int i = 0; i < n; i++){
                 buf[0] = 0;
                 if(either_copyout(user_dst, addr + i, buf, 1) < 0)
@@ -32,7 +33,6 @@ int pseudoread(int minor, int user_dst, uint64 addr, int n) {
             return n;
 
         case PSEUDO_URANDOM:
-            char buf[64];
             for(int i = 0; i < n; i++){
                 buf[0] = lcg_rand() & 0xFF;
                 if(either_copyout(user_dst, addr + i, buf, 1) < 0)

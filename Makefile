@@ -148,6 +148,7 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_hexdump\
 	$U/_hexwrite\
+	$U/_pseudo_test\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
