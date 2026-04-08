@@ -11,6 +11,17 @@
 
 char *argv[] = { "sh", 0 };
 
+static void open_pseudo(const char* name, int minor) {
+  struct stat st;
+
+  if (stat(name, &st) < 0) {
+    if (mknod(name, PSEUDO, minor) < 0) {
+      printf("init: mknod %s failed\n", name);
+      exit(1);
+    }
+  }
+}
+
 int
 main(void)
 {
@@ -20,6 +31,12 @@ main(void)
     mknod("console", CONSOLE, 0);
     open("console", O_RDWR);
   }
+
+  open_pseudo("null", PSEUDO_NULL);
+  open_pseudo("zero", PSEUDO_ZERO);
+  open_pseudo("urandom", PSEUDO_URANDOM);
+  open_pseudo("nullstat", PSEUDO_NULLSTAT);
+
   dup(0);  // stdout
   dup(0);  // stderr
 

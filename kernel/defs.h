@@ -17,6 +17,9 @@ void            bwrite(struct buf*);
 void            bpin(struct buf*);
 void            bunpin(struct buf*);
 
+// pseudo.c
+void            pseudoinit(void);
+
 // console.c
 void            consoleinit(void);
 void            consoleintr(int);
