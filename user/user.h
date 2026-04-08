@@ -27,6 +27,8 @@ int uptime(void);
 
 // mine
 int pgtbl(void);
+int pteflags_clear(void*, int, int);
+int pteflags_check(void*, int, int);
 
 // ulib.c
 int stat(const char*, struct stat*);

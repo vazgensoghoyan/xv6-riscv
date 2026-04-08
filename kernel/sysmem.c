@@ -18,7 +18,14 @@ static void print_flags(pte_t pte, char *out) {
     out[7] = '\0';
 }
 
-static void walk_pt(pagetable_t pagetable, int level, uint64 va) {
+static void print_indent(int level) {
+    int dots = (3 - level) * 4; // подобрано под визуализацию
+    for(int i = 0; i < dots; i++){
+        printf(".");
+    }
+}
+
+static void walk_pt(pagetable_t pagetable, int level) {
     for (int i = 0; i < 512; i++){
         pte_t pte = pagetable[i];
 
@@ -27,16 +34,17 @@ static void walk_pt(pagetable_t pagetable, int level, uint64 va) {
         uint64 pa = PTE2PA(pte);
         int is_leaf = pte & (PTE_R | PTE_W | PTE_X);
 
-        if (level > 0 && !is_leaf){
-            uint64 new_va = va | ((uint64)i << PXSHIFT(level));
-            walk_pt((pagetable_t)pa, level - 1, new_va);
+        char flags[8];
+        print_flags(pte, flags);
+
+        if(level > 0 && !is_leaf){
+            print_indent(level);
+            printf("0x%x -> 0x%lx %s\n", i, pa, flags);
+
+            walk_pt((pagetable_t)pa, level - 1);
         } else {
-            uint64 vpn = va | ((uint64)i << PXSHIFT(level));
-
-            char flags[8];
-            print_flags(pte, flags);
-
-            printf("0x%lx -> 0x%lx %s\n", vpn, pa, flags);
+            print_indent(level);
+            printf("0x%x -> 0x%lx %s\n", i, pa, flags);
         }
     }
 }
@@ -44,6 +52,76 @@ static void walk_pt(pagetable_t pagetable, int level, uint64 va) {
 uint64 sys_pgtbl(void) {
     struct proc *p = myproc();
     printf("PAGETABLE %p\n", p->pagetable);
-    walk_pt(p->pagetable, 2, 0);
+    walk_pt(p->pagetable, 2);
+    return 0;
+}
+
+uint64
+sys_pteflags_clear(void)
+{
+    uint64 buf;
+    int len;
+    int mask;
+
+    argaddr(0, &buf);
+    argint(1, &len);
+    argint(2, &mask);
+
+    // проверка маски (только A и D допустимы)
+    if(mask & ~(PTE_A | PTE_D))
+        return -1;
+
+    struct proc *p = myproc();
+
+    // проверка что весь буфер в адресном пространстве
+    if(buf >= p->sz || buf + len > p->sz)
+        return -1;
+
+    uint64 start = PGROUNDDOWN(buf);
+    uint64 end = PGROUNDDOWN(buf + len - 1);
+
+    for(uint64 va = start; va <= end; va += PGSIZE){
+        pte_t *pte = walk(p->pagetable, va, 0);
+        if(pte == 0 || (*pte & PTE_V) == 0)
+            return -1;
+
+        // снимаем флаги
+        *pte &= ~mask;
+    }
+
+    return 0;
+}
+
+uint64
+sys_pteflags_check(void)
+{
+    uint64 buf;
+    int len;
+    int mask;
+
+    argaddr(0, &buf);
+    argint(1, &len);
+    argint(2, &mask);
+
+    if(mask & ~(PTE_A | PTE_D))
+        return -1;
+
+    struct proc *p = myproc();
+
+    if(buf >= p->sz || buf + len > p->sz)
+        return -1;
+
+    uint64 start = PGROUNDDOWN(buf);
+    uint64 end = PGROUNDDOWN(buf + len - 1);
+
+    for(uint64 va = start; va <= end; va += PGSIZE){
+        pte_t *pte = walk(p->pagetable, va, 0);
+        if(pte == 0 || (*pte & PTE_V) == 0)
+            return -1;
+
+        if((*pte & mask) != 0)
+            return 1;
+    }
+
     return 0;
 }

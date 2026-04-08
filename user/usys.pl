@@ -43,3 +43,5 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("pgtbl");
+entry("pteflags_clear");
+entry("pteflags_check");
