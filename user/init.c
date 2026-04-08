@@ -12,16 +12,13 @@
 char *argv[] = { "sh", 0 };
 
 static void open_pseudo(const char* name, int minor) {
-  int fd = open(name, O_RDWR);
-  if(fd < 0){
-    mknod(name, PSEUDO, minor);
-  } else {
-    close(fd);
-    // closing is important as i understood
-    // because otherwise doing 'make qemu' few times
-    // we will get init.c working with same data few times
-    // and therefore this pseudo files will stay opened
-    // therefore console will not work properly
+  struct stat st;
+
+  if (stat(name, &st) < 0) {
+    if (mknod(name, PSEUDO, minor) < 0) {
+      printf("init: mknod %s failed\n", name);
+      exit(1);
+    }
   }
 }
 

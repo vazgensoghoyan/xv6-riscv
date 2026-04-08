@@ -3,10 +3,16 @@
 #include "kernel/fcntl.h"
 #include "user/user.h"
 
-static void print_hex(uint8 b) {
+static int print_hex(uint8 b) {
     const char* hex = "0123456789ABCDEF";
-    write(1, &hex[b >> 4], 1);
-    write(1, &hex[b & 0xF], 1);
+
+    if (write(1, &hex[b >> 4], 1) != 1)
+        return -1;
+
+    if (write(1, &hex[b & 0xF], 1) != 1)
+        return -1;
+
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -29,23 +35,46 @@ int main(int argc, char* argv[]) {
 
     while (total < n) {
         int to_read = sizeof(buf);
-
-        if (n - total < to_read) to_read = n - total;
+        if (n - total < to_read)
+            to_read = n - total;
 
         int r = read(fd, buf, to_read);
-        if (r <= 0) break;
+
+        if (r < 0) {
+            fprintf(2, "hexdump: read error\n");
+            close(fd);
+            exit(1);
+        }
+
+        if (r == 0) {
+            break; // EOF
+        }
 
         for (int i = 0; i < r; i++) {
-            print_hex(buf[i]);
+            if (print_hex(buf[i]) < 0) {
+                fprintf(2, "hexdump: write error\n");
+                close(fd);
+                exit(1);
+            }
 
-            if (total + i < n - 1)
-                write(1, " ", 1);
+            if (total + i < n - 1) {
+                if (write(1, " ", 1) != 1) {
+                    fprintf(2, "hexdump: write error\n");
+                    close(fd);
+                    exit(1);
+                }
+            }
         }
 
         total += r;
     }
 
-    write(1, "\n", 1);
+    if (write(1, "\n", 1) != 1) {
+        fprintf(2, "hexdump: write error\n");
+        close(fd);
+        exit(1);
+    }
+
     close(fd);
     exit(0);
 }
