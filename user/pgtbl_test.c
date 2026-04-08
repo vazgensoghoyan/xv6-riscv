@@ -4,143 +4,80 @@
 
 #define PGSIZE 4096
 
-// Глобальная переменная
-int global_var = 42;
+int g_var1 = 10;
+int g_var2 = 20;
 
-void
-print_header(char *msg)
-{
-  printf("\n============================\n");
-  printf("%s\n", msg);
-  printf("============================\n");
-}
+int main() {
 
-// Буфер для проверки на куче
-void
-test_heap()
-{
-  print_header("ALLOCATING HEAP (MULTIPLE PAGES)");
+  printf("=== START STATE (GLOBAL + STACK) ===\n");
+  pgtbl();
 
-  char *heap = malloc(5 * PGSIZE); // несколько страниц
+  int s_var1 = 100;
+  int s_var2 = 200;
 
-  if(heap == 0){
+  printf("\n=== AFTER STACK VARIABLES CREATED ===\n");
+  printf("stack vars: %d %d\n", s_var1, s_var2);
+  pgtbl();
+
+  int s_arr[1024]; // ? 4KB
+
+  s_arr[0] = 1;
+  s_arr[1023] = 2;
+
+  printf("\n=== AFTER STACK ARRAY ACCESS ===\n");
+  printf("stack array: %d %d\n", s_arr[0], s_arr[1023]);
+  pgtbl();
+
+  printf("\n=== MALLOC HEAP (MULTIPLE PAGES) ===\n");
+  char *buf = malloc(PGSIZE * 3);
+
+  if (buf == 0){
     printf("malloc failed\n");
     exit(1);
   }
 
-  // Инициализация массива
-  for(int i = 0; i < 5 * PGSIZE; i++){
-    heap[i] = (char)(i % 256);
-  }
-
-  printf("Heap allocated and initialized\n");
+  printf("heap buffer: %p\n", buf);
 
   pgtbl();
 
-  print_header("CLEAR A/D FLAGS ON HEAP");
-
-  // Очистка флагов
-  pteflags_clear(heap, 5 * PGSIZE, PTE_A | PTE_D);
+  printf("\n=== CLEAR A/D FLAGS ===\n");
+  pteflags_clear(buf, PGSIZE * 3, PTE_A | PTE_D);
 
   pgtbl();
 
-  print_header("READ FROM HEAP (SHOULD SET A)");
+  // чтение (должен выставиться A)
+  printf("\n=== READ HEAP PAGES ===\n");
+  volatile char r1 = buf[0];
+  volatile char r2 = buf[PGSIZE];
+  volatile char r3 = buf[PGSIZE * 2];
 
-  volatile char x = heap[0]; // чтение
-  printf("Read value: %d\n", x);
-
-  pgtbl();
-
-  print_header("WRITE TO HEAP (SHOULD SET D)");
-
-  heap[0] = 99;
+  printf("read: %d %d %d\n", r1, r2, r3);
 
   pgtbl();
 
-  print_header("CHECK FLAGS ON HEAP");
-
-  int res = pteflags_check(heap, 5 * PGSIZE, PTE_A | PTE_D);
-  printf("Check A|D result: %d (expected 1)\n", res);
-
-  print_header("FREE HEAP");
-
-  free(heap);
-
-  pgtbl();
-}
-
-void
-test_stack()
-{
-  print_header("STACK TEST");
-
-  int stack_var = 123;
-  int stack_arr[1024]; // лежит в стеке
-
-  for(int i = 0; i < 1024; i++){
-    stack_arr[i] = i;
-  }
-
-  printf("Stack var address: %p\n", &stack_var);
-  printf("Stack array address: %p\n", stack_arr);
+  // запись (должен выставиться D)
+  printf("\n=== WRITE HEAP PAGES ===\n");
+  buf[0] = 1;
+  buf[PGSIZE] = 2;
+  buf[PGSIZE * 2] = 3;
 
   pgtbl();
 
-  print_header("CLEAR FLAGS ON STACK");
-
-  pteflags_clear(&stack_var, sizeof(stack_var), PTE_A | PTE_D);
-
-  pgtbl();
-
-  print_header("READ STACK");
-
-  volatile int x = stack_var;
-  printf("Read stack: %d\n", x);
+  // повторная очистка
+  printf("\n=== CLEAR A/D AGAIN ===\n");
+  pteflags_clear(buf, PGSIZE * 3, PTE_A | PTE_D);
 
   pgtbl();
 
-  print_header("WRITE STACK");
+  printf("\n=== CHECK FLAGS ===\n");
+  int has_flags = pteflags_check(buf, PGSIZE * 3, PTE_A | PTE_D);
+  printf("A/D present: %d\n", has_flags);
 
-  stack_var = 777;
-
-  pgtbl();
-}
-
-void
-test_global()
-{
-  print_header("GLOBAL VARIABLE TEST");
-
-  printf("Global var address: %p\n", &global_var);
+  printf("\n=== FREE HEAP ===\n");
+  free(buf);
 
   pgtbl();
 
-  print_header("READ GLOBAL");
-
-  volatile int x = global_var;
-  printf("Global read: %d\n", x);
-
-  pgtbl();
-
-  print_header("WRITE GLOBAL");
-
-  global_var = 100;
-
-  pgtbl();
-}
-
-int
-main()
-{
-  print_header("START");
-
-  pgtbl();
-
-  test_global();
-  test_stack();
-  test_heap();
-
-  print_header("END");
-
+  printf("\n=== DONE ===\n");
   exit(0);
 }

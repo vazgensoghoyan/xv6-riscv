@@ -19,8 +19,8 @@ static void print_flags(pte_t pte, char *out) {
 }
 
 static void print_indent(int level) {
-    int dots = (3 - level) * 4; // подобрано под визуализацию
-    for(int i = 0; i < dots; i++){
+    int dots = (3 - level) * 4;
+    for (int i = 0; i < dots; i++){
         printf(".");
     }
 }
@@ -37,14 +37,11 @@ static void walk_pt(pagetable_t pagetable, int level) {
         char flags[8];
         print_flags(pte, flags);
 
-        if(level > 0 && !is_leaf){
-            print_indent(level);
-            printf("0x%x -> 0x%lx %s\n", i, pa, flags);
+        print_indent(level);
+        printf("0x%x -> 0x%lx %s\n", i, pa, flags);
 
+        if (level > 0 && !is_leaf){
             walk_pt((pagetable_t)pa, level - 1);
-        } else {
-            print_indent(level);
-            printf("0x%x -> 0x%lx %s\n", i, pa, flags);
         }
     }
 }
@@ -56,9 +53,24 @@ uint64 sys_pgtbl(void) {
     return 0;
 }
 
-uint64
-sys_pteflags_clear(void)
-{
+// Проверка, что весь буфер валиден и принадлежит процессу
+static int check_buffer(struct proc *p, uint64 buf, int len){
+    if (len <= 0)
+        return -1;
+
+    uint64 start = PGROUNDDOWN(buf);
+    uint64 end = PGROUNDDOWN(buf + len - 1);
+
+    for (uint64 va = start; va <= end; va += PGSIZE){
+        pte_t *pte = walk(p->pagetable, va, 0);
+        if (pte == 0 || (*pte & PTE_V) == 0)
+            return -1;
+    }
+
+    return 0;
+}
+
+uint64 sys_pteflags_clear(void) {
     uint64 buf;
     int len;
     int mask;
@@ -67,34 +79,36 @@ sys_pteflags_clear(void)
     argint(1, &len);
     argint(2, &mask);
 
-    // проверка маски (только A и D допустимы)
-    if(mask & ~(PTE_A | PTE_D))
+    if (mask & ~(PTE_A | PTE_D))
         return -1;
 
     struct proc *p = myproc();
 
-    // проверка что весь буфер в адресном пространстве
-    if(buf >= p->sz || buf + len > p->sz)
+    if (check_buffer(p, buf, len) < 0)
         return -1;
 
     uint64 start = PGROUNDDOWN(buf);
     uint64 end = PGROUNDDOWN(buf + len - 1);
 
-    for(uint64 va = start; va <= end; va += PGSIZE){
+    for (uint64 va = start; va <= end; va += PGSIZE){
         pte_t *pte = walk(p->pagetable, va, 0);
-        if(pte == 0 || (*pte & PTE_V) == 0)
-            return -1;
+        if (pte == 0)
+            continue;
 
-        // снимаем флаги
+        // только leaf страницы
+        if ((*pte & PTE_V) == 0)
+            continue;
+
+        if (!(*pte & (PTE_R | PTE_W | PTE_X)))
+            continue;
+
         *pte &= ~mask;
     }
 
     return 0;
 }
 
-uint64
-sys_pteflags_check(void)
-{
+uint64 sys_pteflags_check(void) {
     uint64 buf;
     int len;
     int mask;
@@ -103,23 +117,29 @@ sys_pteflags_check(void)
     argint(1, &len);
     argint(2, &mask);
 
-    if(mask & ~(PTE_A | PTE_D))
+    if (mask & ~(PTE_A | PTE_D))
         return -1;
 
     struct proc *p = myproc();
 
-    if(buf >= p->sz || buf + len > p->sz)
+    if (check_buffer(p, buf, len) < 0)
         return -1;
 
     uint64 start = PGROUNDDOWN(buf);
     uint64 end = PGROUNDDOWN(buf + len - 1);
 
-    for(uint64 va = start; va <= end; va += PGSIZE){
+    for (uint64 va = start; va <= end; va += PGSIZE){
         pte_t *pte = walk(p->pagetable, va, 0);
-        if(pte == 0 || (*pte & PTE_V) == 0)
-            return -1;
+        if (pte == 0)
+            continue;
 
-        if((*pte & mask) != 0)
+        if ((*pte & PTE_V) == 0)
+            continue;
+
+        if (!(*pte & (PTE_R | PTE_W | PTE_X)))
+            continue;
+
+        if ((*pte & mask) != 0)
             return 1;
     }
 
