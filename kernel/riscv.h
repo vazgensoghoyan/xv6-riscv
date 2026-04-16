@@ -362,6 +362,7 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PTE_U (1L << 4) // user can access
 
 // my macroses
+#define PTE_G (1L << 5)
 #define PTE_A (1L << 6)
 #define PTE_D (1L << 7)
 // end of my macroses

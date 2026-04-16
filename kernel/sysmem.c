@@ -12,7 +12,7 @@ static void print_flags(pte_t pte, char *out) {
     out[1] = (pte & PTE_W) ? 'W' : '_';
     out[2] = (pte & PTE_X) ? 'X' : '_';
     out[3] = (pte & PTE_U) ? 'U' : '_';
-    out[4] = '_'; // G нам не надо
+    out[4] = (pte & PTE_G) ? 'G' : '_';
     out[5] = (pte & PTE_A) ? 'A' : '_';
     out[6] = (pte & PTE_D) ? 'D' : '_';
     out[7] = '\0';
@@ -104,6 +104,8 @@ uint64 sys_pteflags_clear(void) {
 
         *pte &= ~mask;
     }
+
+    sfence_vma();
 
     return 0;
 }
