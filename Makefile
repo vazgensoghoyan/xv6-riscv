@@ -1,7 +1,13 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror -std=c11 -Iinclude -D_XOPEN_SOURCE=700
 
-SRC = src/logger.c src/signals.c
+SRC = src/logger.c \
+      src/signals.c \
+      src/fifo.c \
+      src/stats.c \
+      src/daemon.c \
+	  src/server.c
+
 OBJ = $(SRC:.c=.o)
 
 TARGET = log_server
@@ -19,3 +25,5 @@ src/%.o: src/%.c
 
 clean:
 	rm -f main.o src/*.o $(TARGET)
+
+.PHONY: all clean

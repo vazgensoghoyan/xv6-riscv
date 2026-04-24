@@ -1,18 +1,29 @@
 #include "signals.h"
 #include <string.h>
 
-volatile sig_atomic_t sigint_flag = 0;
-volatile sig_atomic_t sigterm_flag = 0;
 volatile sig_atomic_t sigusr1_flag = 0;
 volatile sig_atomic_t sighup_flag = 0;
 volatile sig_atomic_t alarm_flag = 0;
+volatile sig_atomic_t exit_mode = 0;
 
 static void handler(int signo) {
-    if (signo == SIGINT) sigint_flag = 1;
-    else if (signo == SIGTERM) sigterm_flag = 1;
-    else if (signo == SIGUSR1) sigusr1_flag = 1;
-    else if (signo == SIGHUP) sighup_flag = 1;
-    else if (signo == SIGALRM) alarm_flag = 1;
+    switch (signo) {
+        case SIGINT:
+            exit_mode = 1;   // drain mode
+            break;
+        case SIGTERM:
+            exit_mode = 2;   // immediate exit
+            break;
+        case SIGUSR1:
+            sigusr1_flag = 1;
+            break;
+        case SIGHUP:
+            sighup_flag = 1;
+            break;
+        case SIGALRM:
+            alarm_flag = 1;
+            break;
+    }
 }
 
 void setup_signals(void) {
