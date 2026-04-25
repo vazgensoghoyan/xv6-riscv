@@ -1,6 +1,5 @@
 #include "stats.h"
 #include "logger.h"
-#include <stdio.h>
 
 static long msg_count;
 static long bytes_total;

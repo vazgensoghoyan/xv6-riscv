@@ -1,36 +1,33 @@
 #include "signals.h"
-#include <string.h>
+#include <stddef.h>
 
-volatile sig_atomic_t sigusr1_flag = 0;
-volatile sig_atomic_t sighup_flag = 0;
-volatile sig_atomic_t alarm_flag = 0;
-volatile sig_atomic_t exit_mode = 0;
+server_state_t g_state = {0};
 
-static void handler(int signo) {
-    switch (signo) {
+static void handler(int sig) {
+    switch (sig) {
         case SIGINT:
-            exit_mode = 1;   // drain mode
+            g_state.drain_mode = 1;
             break;
         case SIGTERM:
-            exit_mode = 2;   // immediate exit
+            g_state.exit_now = 1;
             break;
         case SIGUSR1:
-            sigusr1_flag = 1;
+            g_state.stats_req = 1;
             break;
         case SIGHUP:
-            sighup_flag = 1;
+            g_state.hup_event = 1;
             break;
         case SIGALRM:
-            alarm_flag = 1;
+            g_state.alarm_event = 1;
             break;
     }
 }
 
 void setup_signals(void) {
     struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
-
     sa.sa_handler = handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0; // важно: NO SA_RESTART
 
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
