@@ -27,7 +27,7 @@ void stats_print(void) {
     char buf[256];
 
     snprintf(buf, sizeof(buf),
-        "\n[STATS]\nmessages: %ld\nbytes: %ld\nalarms: %ld\n\n",
+        "[STATS]\nmessages: %ld\nbytes: %ld\nalarms: %ld\n",
         msg_count, bytes_total, alarm_count);
 
     log_msg(buf);

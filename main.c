@@ -3,10 +3,10 @@
 #include "fifo.h"
 #include "stats.h"
 #include "server.h"
-#include "fifo.h"
 
 #include <unistd.h>
 #include <errno.h>
+#include <stdio.h>
 
 #define FIFO_PATH "/tmp/log_server.fifo"
 #define BUF_SIZE 4096
@@ -44,10 +44,8 @@ int main(void) {
         }
 
         char buf[BUF_SIZE];
-        ssize_t n;
 
-
-        while (1) {
+        while (!g_state.exit_now) {
 
             handle_async_events();
 
@@ -57,13 +55,13 @@ int main(void) {
                 goto exit;
             }
 
-            n = fifo_read_loop(fd, buf, BUF_SIZE);
+            ssize_t n = fifo_read_loop(fd, buf, BUF_SIZE);
 
             if (n < 0) {
                 if (errno == EINTR)
                     continue;
 
-                perror("read");
+                perror("read fifo");
                 fifo_close(fd);
                 goto exit;
             }
@@ -97,7 +95,7 @@ int main(void) {
     }
 
 exit:
-    alarm(0); // выключаем другие
+    alarm(0);
 
     stats_print();
     log_msg("server stopped\n");

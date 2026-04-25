@@ -35,10 +35,7 @@ void handle_async_events(void) {
 
     if (g_state.stats_req) {
         g_state.stats_req = 0;
-
-        log_msg("\n===== SIGUSR1 =====\n");
         stats_print();
-        log_msg("====================\n");
     }
 
     if (g_state.hup_event) {

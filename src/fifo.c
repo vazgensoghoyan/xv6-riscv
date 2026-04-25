@@ -20,7 +20,7 @@ int fifo_open_blocking(const char *path) {
         if (fd < 0) {
 
             if (errno == EINTR)
-                continue;
+                return -1;
 
             perror("open fifo");
             return -1;
