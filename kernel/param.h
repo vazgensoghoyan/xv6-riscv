@@ -13,3 +13,6 @@
 #define MAXPATH      128   // maximum file path name
 #define USERSTACK    1     // user stack pages
 
+// my parameters
+#define DMESG_PAGES  2
+#define DMESG_SIZE   (DMESG_PAGES * PGSIZE)

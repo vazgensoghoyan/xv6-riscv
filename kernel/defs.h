@@ -9,6 +9,10 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+// my dmesg.c
+void dmesginit(void);
+void pr_msg(const char *fmt, ...);
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
