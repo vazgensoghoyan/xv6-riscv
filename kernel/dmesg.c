@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "proc.h"
 
 // STRUCT for dmesg
 
@@ -19,8 +20,9 @@ struct {
 
 void dmesginit(void) {
     initlock(&dmesg.lock, "dmesg");
-    dmesg.head = 0;
-    dmesg.tail = 0;
+	dmesg.buf[0] = '\n';
+	dmesg.head = 1;
+	dmesg.tail = 0;
 }
 
 static void dmesg_putc(char c) {
@@ -147,4 +149,76 @@ void pr_msg(const char *fmt, ...) {
 	dmesg_putc('\n');
 
 	release(&dmesg.lock);
+}
+
+// SYSCALL dmesg for read
+
+uint64 sys_dmesg(void) {
+	uint64 ubuf;
+	int max;
+
+	argaddr(0, &ubuf);
+	argint(1, &max);
+
+	if (max <= 0)
+		return -1;
+
+	struct proc *p = myproc();
+
+	acquire(&dmesg.lock);
+
+	uint t = dmesg.tail;
+	uint h = dmesg.head;
+
+	if (t == h) {
+		release(&dmesg.lock);
+		return 0;
+	}
+
+	// find first full line start after '\n'
+	uint start = t;
+
+	uint i = t;
+	while (i != h) {
+		if (dmesg.buf[i] == '\n') {
+			start = (i + 1) % DMESG_SIZE;
+			break;
+		}
+		i = (i + 1) % DMESG_SIZE;
+	}
+
+	// if buffer empty after normalization
+	if (start == h) {
+		release(&dmesg.lock);
+		return 0;
+	}
+
+	// copy from start in circular manner
+	uint n = 0;
+	uint cur = start;
+
+	while (cur != h && n < max - 1) {
+		uint chunk;
+
+		chunk = ((cur < h) ? h : DMESG_SIZE) - cur;
+
+		if (chunk > max - 1 - n)
+			chunk = max - 1 - n;
+
+		if (copyout(p->pagetable, ubuf + n, &dmesg.buf[cur], chunk) < 0) {
+			release(&dmesg.lock);
+			return -1;
+		}
+
+		n += chunk;
+		cur = (cur + chunk) % DMESG_SIZE;
+	}
+
+	release(&dmesg.lock);
+
+	char z = '\0';
+	if (copyout(p->pagetable, ubuf + n, &z, 1) < 0)
+		return -1;
+
+	return n;
 }

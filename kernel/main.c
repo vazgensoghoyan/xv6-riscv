@@ -3,6 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "dmesg_log.h"
 
 volatile static int started = 0;
 
@@ -15,6 +16,7 @@ main()
     printfinit();
 
     dmesginit(); // my dmesg
+    loginit();
 
     printf("\n");
     printf("xv6 kernel is booting\n");

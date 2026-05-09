@@ -29,7 +29,8 @@ OBJS = \
   $K/kernelvec.o \
   $K/plic.o \
   $K/virtio_disk.o \
-  $K/dmesg.o
+  $K/dmesg.o \
+  $K/dmesg_log.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -86,6 +87,28 @@ CFLAGS += -fno-pie -nopie
 endif
 
 LDFLAGS = -z max-page-size=4096
+
+# Моя часть
+
+LOG_SYSCALL ?= 1
+LOG_INTR ?= 1
+LOG_PROC ?= 1
+LOG_EXEC ?= 1
+
+ifeq ($(LOG_SYSCALL),1)
+CFLAGS += -DLOG_SYSCALL
+endif
+ifeq ($(LOG_INTR),1)
+CFLAGS += -DLOG_INTR
+endif
+ifeq ($(LOG_PROC),1)
+CFLAGS += -DLOG_PROC
+endif
+ifeq ($(LOG_EXEC),1)
+CFLAGS += -DLOG_EXEC
+endif
+
+# Моя часть закончилась
 
 $K/kernel: $(OBJS) $K/kernel.ld
 	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
@@ -146,6 +169,8 @@ UPROGS=\
 	$U/_logstress\
 	$U/_forphan\
 	$U/_dorphan\
+	$U/_dmesg\
+	$U/_dmesg_logctl\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

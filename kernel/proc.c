@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "dmesg_log.h"
 
 struct cpu cpus[NCPU];
 
@@ -292,6 +293,8 @@ kfork(void)
 
   pid = np->pid;
 
+  LOG_PROC_MSG("fork: parent=%s (%d) -> child=%s (%d)", p->name, p->pid, np->name, pid);
+
   release(&np->lock);
 
   acquire(&wait_lock);
@@ -359,6 +362,8 @@ kexit(int status)
   p->state = ZOMBIE;
 
   release(&wait_lock);
+
+  LOG_PROC_MSG("exit: name=%s pid=%d parent=%d", p->name, p->pid, p->parent ? p->parent->pid : -1);
 
   // Jump into the scheduler, never to return.
   sched();

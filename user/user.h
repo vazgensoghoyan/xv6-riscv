@@ -2,6 +2,10 @@
 
 struct stat;
 
+// my sys call
+int dmesg(char *buf, int max);
+int logctl(int mask, int timeout);
+
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
