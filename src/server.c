@@ -4,9 +4,13 @@
 #include "signals.h"
 
 #include <sys/stat.h>
-#include <errno.h>
-#include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+
+#define ALARM_SEC 5
 
 void ensure_fifo(const char *path) {
     struct stat st;
@@ -49,31 +53,78 @@ void handle_async_events(void) {
         stats_inc_alarm();
         log_msg("[ALARM] server running, waiting for data\n");
 
-        alarm(5);
+        alarm(ALARM_SEC);
     }
 }
 
 void daemonize_if_needed(void) {
-    static int is_daemon = 0;
 
+    static int is_daemon = 0;
     if (is_daemon)
         return;
 
     is_daemon = 1;
 
-    if (fork() > 0) exit(0);
-    setsid();
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
 
-    if (fork() > 0) exit(0);
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
 
-    FILE *f = fopen("/tmp/log_server_daemon.log", "a");
-    if (!f) exit(1);
+    if (setsid() < 0) {
+        perror("setsid");
+        exit(EXIT_FAILURE);
+    }
 
-    log_init_file("/tmp/log_server_daemon.log");
-    log_reinit_filepointer(f);
+    pid = fork();
+    if (pid < 0) {
+        perror("fork2");
+        exit(EXIT_FAILURE);
+    }
 
-    dup2(fileno(f), STDOUT_FILENO);
-    dup2(fileno(f), STDERR_FILENO);
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    umask(0);
+
+    if (chdir("/") == -1) {
+        perror("chdir");
+        exit(EXIT_FAILURE);
+    }
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+    int fd = open("/tmp/log_server_daemon.log",
+                  O_CREAT | O_WRONLY | O_APPEND, 0644);
+
+    if (fd < 0) {
+        perror("open daemon log");
+        exit(EXIT_FAILURE);
+    }
+
+    if (dup2(fd, STDOUT_FILENO) < 0) {
+        perror("dup2 stdout");
+        exit(EXIT_FAILURE);
+    }
+
+    if (dup2(fd, STDERR_FILENO) < 0) {
+        perror("dup2 stderr");
+        exit(EXIT_FAILURE);
+    }
+
+    if (fd > 2) {
+        if (close(fd) == -1) {
+            perror("close daemon log fd");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    log_reinit_filepointer(stdout);
 
     log_msg("daemonized via SIGHUP\n");
 }

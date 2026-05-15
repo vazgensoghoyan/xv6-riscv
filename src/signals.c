@@ -1,4 +1,8 @@
 #include "signals.h"
+
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <stddef.h>
 
 server_state_t g_state = {0};
@@ -24,16 +28,45 @@ static void handler(int sig) {
 }
 
 void setup_signals(void) {
+
     struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+
     sa.sa_handler = handler;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0; // важно: NO SA_RESTART
+    sa.sa_flags = 0;
 
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGUSR1, &sa, NULL);
-    sigaction(SIGHUP, &sa, NULL);
-    sigaction(SIGALRM, &sa, NULL);
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        perror("sigaction SIGINT");
+        exit(EXIT_FAILURE);
+    }
 
-    signal(SIGQUIT, SIG_IGN);
+    if (sigaction(SIGTERM, &sa, NULL) == -1) {
+        perror("sigaction SIGTERM");
+        exit(EXIT_FAILURE);
+    }
+
+    if (sigaction(SIGUSR1, &sa, NULL) == -1) {
+        perror("sigaction SIGUSR1");
+        exit(EXIT_FAILURE);
+    }
+
+    if (sigaction(SIGHUP, &sa, NULL) == -1) {
+        perror("sigaction SIGHUP");
+        exit(EXIT_FAILURE);
+    }
+
+    if (sigaction(SIGALRM, &sa, NULL) == -1) {
+        perror("sigaction SIGALRM");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sigaction ign;
+    memset(&ign, 0, sizeof(ign));
+    ign.sa_handler = SIG_IGN;
+
+    if (sigaction(SIGQUIT, &ign, NULL) == -1) {
+        perror("sigaction SIGQUIT");
+        exit(EXIT_FAILURE);
+    }
 }
