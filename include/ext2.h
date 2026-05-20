@@ -6,7 +6,8 @@
 #define EXT2_SUPER_SIZE   1024
 #define EXT2_SUPER_MAGIC  0xEF53
 
-#pragma pack(push, 1)       // на всякий, не уверен, надо ли
+// SUPERBLOCK
+
 struct ext2_superblock {
     uint32_t s_inodes_count;
     uint32_t s_blocks_count;
@@ -38,6 +39,8 @@ struct ext2_superblock {
     uint16_t s_inode_size;
 };
 
+// GROUP DESC
+
 struct ext2_group_desc {
     uint32_t bg_block_bitmap;
     uint32_t bg_inode_bitmap;
@@ -48,6 +51,8 @@ struct ext2_group_desc {
     uint16_t bg_pad;
     uint8_t  bg_reserved[12];
 };
+
+// INODE
 
 struct ext2_inode {
     uint16_t i_mode;
@@ -69,7 +74,8 @@ struct ext2_inode {
     uint32_t i_faddr;
     uint8_t  i_osd2[12];
 };
-#pragma pack(pop)
+
+// API
 
 int ext2_read_superblock(int fd, struct ext2_superblock *sb);
 
@@ -80,3 +86,13 @@ int ext2_read_group_desc(int fd, const struct ext2_superblock *sb,
 
 int ext2_read_inode(int fd, const struct ext2_superblock *sb,
                     uint32_t inode_num, struct ext2_inode *inode);
+
+int ext2_read_block(int fd, const struct ext2_superblock *sb,
+                    uint32_t block_num, void *buf);
+
+// callback on each block
+typedef int (*ext2_block_cb)(uint32_t logical_block, uint32_t physical_block, void *ctx);
+
+int ext2_inode_foreach_block(int fd, const struct ext2_superblock *sb,
+                             const struct ext2_inode *inode,
+                             ext2_block_cb cb, void *ctx);

@@ -2,6 +2,9 @@
 #include "util.h"
 #include "endian.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 int ext2_read_superblock(int fd, struct ext2_superblock *sb) {
     return read_bytes(fd, sb, sizeof(*sb), EXT2_SUPER_OFFSET);
 }
@@ -24,6 +27,8 @@ int ext2_read_group_desc(
 
     return read_bytes(fd, gd, sizeof(*gd), offset);
 }
+
+// INODE
 
 int ext2_read_inode(
     int fd,
@@ -49,4 +54,119 @@ int ext2_read_inode(
     uint64_t inode_offset = (uint64_t)inode_table * block_size + (uint64_t)index * inode_size;
 
     return read_bytes(fd, inode, sizeof(*inode), inode_offset);
+}
+
+// BLOCK
+
+int ext2_read_block(int fd, const struct ext2_superblock *sb, uint32_t block_num, void *buf) {
+    uint32_t block_size = ext2_block_size(sb);
+
+    uint64_t offset = (uint64_t)block_num * block_size;
+
+    return read_bytes(fd, buf, block_size, offset);
+}
+
+// INDIRECT HELPERS
+
+static int process_indirect(
+    int fd,
+    const struct ext2_superblock *sb,
+    uint32_t block_num,
+    uint32_t logical_base,
+    ext2_block_cb cb,
+    void *ctx
+) {
+    uint32_t block_size = ext2_block_size(sb);
+
+    uint32_t *buf = malloc(block_size);
+    if (!buf)
+        return -1;
+
+    if (ext2_read_block(fd, sb, block_num, buf) < 0) {
+        free(buf);
+        return -1;
+    }
+
+    uint32_t count = block_size / 4;
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t phys = ext2_le32(buf[i]);
+
+        if (phys == 0)
+            continue;
+
+        if (cb(logical_base + i, phys, ctx) < 0) {
+            free(buf);
+            return -1;
+        }
+    }
+
+    free(buf);
+    return 0;
+}
+
+// FOREACH BLOCK
+
+int ext2_inode_foreach_block(
+    int fd,
+    const struct ext2_superblock *sb,
+    const struct ext2_inode *inode,
+    ext2_block_cb cb,
+    void *ctx
+) {
+    for (uint32_t i = 0; i < 12; i++) {
+
+        uint32_t block = ext2_le32(inode->i_block[i]);
+
+        if (block == 0)
+            continue;
+
+        if (cb(i, block, ctx) < 0)
+            return -1;
+    }
+
+    uint32_t single = ext2_le32(inode->i_block[12]);
+
+    if (single) {
+        if (process_indirect(fd, sb, single, 12, cb, ctx) < 0)
+            return -1;
+    }
+
+    uint32_t double_ind = ext2_le32(inode->i_block[13]);
+
+    if (double_ind) {
+
+        uint32_t block_size = ext2_block_size(sb);
+
+        uint32_t *buf = malloc(block_size);
+        if (!buf)
+            return -1;
+
+        if (ext2_read_block(fd, sb, double_ind, buf) < 0) {
+            free(buf);
+            return -1;
+        }
+
+        uint32_t per_indirect = block_size / 4;
+        uint32_t logical = 12;
+
+        for (uint32_t i = 0; i < per_indirect; i++) {
+
+            uint32_t indirect = ext2_le32(buf[i]);
+
+            if (indirect == 0)
+                continue;
+
+            if (process_indirect(fd, sb, indirect, logical, cb, ctx) < 0) {
+                free(buf);
+                return -1;
+            }
+
+            logical += per_indirect;
+        }
+
+        free(buf);
+    }
+
+    return 0;
 }

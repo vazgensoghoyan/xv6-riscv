@@ -6,7 +6,7 @@ OBJ = \
     src/ext2.o \
     src/util.o
 
-all: sb_info inode_info
+all: sb_info inode_info inode_cat
 
 sb_info: $(OBJ) src/sb_info.o
 	$(CC) $(CFLAGS) -o $@ $^
@@ -14,5 +14,11 @@ sb_info: $(OBJ) src/sb_info.o
 inode_info: $(OBJ) src/inode_info.o
 	$(CC) $(CFLAGS) -o $@ $^
 
+inode_cat: $(OBJ) src/inode_cat.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+test:
+	bash tests/run_basic.sh
+
 clean:
-	rm -f src/*.o sb_info inode_info
+	rm -f src/*.o sb_info inode_info inode_cat
