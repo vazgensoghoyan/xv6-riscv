@@ -36,6 +36,7 @@ cleanup() {
     done
 
     rmdir ext2_mnt
+    rm ext2.img
 
     echo "cleanup done"
 }
