@@ -3,4 +3,5 @@
 sb_info
 inode_info
 inode_cat
+inode_dir
 build/

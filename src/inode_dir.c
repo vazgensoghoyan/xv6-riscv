@@ -1,6 +1,5 @@
 #include "ext2.h"
 #include "endian.h"
-
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +12,7 @@ struct dir_ctx {
 };
 
 #pragma pack(push, 1)
-struct ext2_dir_entry_2 {
+struct ext2_dir_entry {
     uint32_t inode;
     uint16_t rec_len;
     uint8_t name_len;
@@ -21,6 +20,19 @@ struct ext2_dir_entry_2 {
     char name[];
 };
 #pragma pack(pop)
+
+static const char *ftype_str(uint8_t t) {
+    switch (t) {
+        case 1: return "file";
+        case 2: return "dir";
+        case 3: return "chardev";
+        case 4: return "blkdev";
+        case 5: return "fifo";
+        case 6: return "socket";
+        case 7: return "symlink";
+        default: return "unknown";
+    }
+}
 
 static int dir_block(uint32_t logical, uint32_t physical, void *ctx_void) {
     (void)logical;
@@ -39,21 +51,18 @@ static int dir_block(uint32_t logical, uint32_t physical, void *ctx_void) {
     }
 
     uint32_t offset = 0;
-
-    while (offset < block_size) {
-
-        struct ext2_dir_entry_2 *e = (struct ext2_dir_entry_2 *)(buf + offset);
-
+    while (offset + sizeof(struct ext2_dir_entry) <= block_size) {
+        struct ext2_dir_entry *e = (struct ext2_dir_entry *)(buf + offset);
         uint16_t rec_len = ext2_le16(e->rec_len);
 
         if (rec_len < 8)
             break;
-
         if (offset + rec_len > block_size)
             break;
 
-        if (e->inode != 0) {
-            printf("%u\t%.*s\n", ext2_le32(e->inode), e->name_len, e->name);
+        uint32_t ino = ext2_le32(e->inode);
+        if (ino != 0) {
+            printf("%-8u  %-8s  %.*s\n", ino, ftype_str(e->file_type), (int)e->name_len, e->name);
         }
 
         offset += rec_len;
@@ -84,6 +93,12 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if (ext2_le16(sb.s_magic) != EXT2_SUPER_MAGIC) {
+        fprintf(stderr, "not ext2\n");
+        close(fd);
+        return 1;
+    }
+
     struct ext2_inode inode;
     if (ext2_read_inode(fd, &sb, inode_num, &inode) < 0) {
         perror("inode");
@@ -94,17 +109,24 @@ int main(int argc, char **argv) {
     uint16_t mode = ext2_le16(inode.i_mode);
 
     if ((mode & 0xF000) != 0x4000) {
-        fprintf(stderr, "error: inode %u is not a directory\n", inode_num);
+        fprintf(stderr, "inode %u is not a directory\n", inode_num);
         close(fd);
         return 1;
     }
+
+    printf("%-8s  %-8s  %s\n", "inode", "type", "name");
+    printf("%-8s  %-8s  %s\n", "-----", "----", "----");
 
     struct dir_ctx ctx = {
         .fd = fd,
         .sb = &sb
     };
 
-    ext2_inode_foreach_block(fd, &sb, &inode, dir_block, &ctx);
+    if (ext2_inode_foreach_block(fd, &sb, &inode, dir_block, &ctx) < 0) {
+        perror("foreach_block");
+        close(fd);
+        return 1;
+    }
 
     close(fd);
     return 0;

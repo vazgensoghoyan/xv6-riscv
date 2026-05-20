@@ -22,6 +22,8 @@ static int cat_block(
 
     struct cat_ctx *ctx = (struct cat_ctx *)opaque;
 
+    if (ctx->remaining == 0) return 0;
+
     uint32_t block_size = ext2_block_size(ctx->sb);
 
     uint8_t *buf = malloc(block_size);
@@ -33,20 +35,15 @@ static int cat_block(
         return -1;
     }
 
-    uint64_t to_write = ctx->remaining;
-    if (to_write > block_size)
-        to_write = block_size;
+    uint64_t to_write = (ctx->remaining < block_size) ? ctx->remaining : block_size;
 
     uint64_t done = 0;
-
     while (done < to_write) {
-        ssize_t rc = write(STDOUT_FILENO, buf + done, to_write - done);
-
-        if (rc <= 0) {
+        ssize_t rc = write(STDOUT_FILENO, buf + done, (size_t)(to_write - done));
+        if (rc < 0) {
             free(buf);
             return -1;
         }
-
         done += (uint64_t)rc;
     }
 
@@ -77,6 +74,12 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if (ext2_le16(sb.s_magic) != EXT2_SUPER_MAGIC) {
+        fprintf(stderr, "not ext2\n");
+        close(fd);
+        return 1;
+    }
+
     struct ext2_inode inode;
     if (ext2_read_inode(fd, &sb, inode_num, &inode) < 0) {
         perror("inode");
@@ -84,18 +87,24 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    uint32_t mode = ext2_le16(inode.i_mode);
-
-    if ((mode & 0xF000) != 0x8000 && (mode & 0xF000) != 0xA000) {
-        fprintf(stderr, "not a regular file or symlink\n");
+    uint16_t mode = ext2_le16(inode.i_mode);
+    uint32_t ftype = mode & 0xF000;
+    if (ftype != 0x8000 && ftype != 0xA000) {
+        fprintf(stderr, "inode %u is not a regular file or symlink\n", inode_num);
         close(fd);
         return 1;
+    }
+
+    uint64_t size = ext2_le32(inode.i_size);
+    if (ftype == 0x8000) {
+        uint32_t upper = ext2_le32(inode.i_dir_acl);
+        size |= (uint64_t)upper << 32;
     }
 
     struct cat_ctx ctx = {
         .fd = fd,
         .sb = &sb,
-        .remaining = ext2_le32(inode.i_size),
+        .remaining = size,
     };
 
     if (ext2_inode_foreach_block(fd, &sb, &inode, cat_block, &ctx) < 0) {
