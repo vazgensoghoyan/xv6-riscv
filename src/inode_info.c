@@ -49,6 +49,14 @@ int main(int argc, char **argv) {
     }
 
     printf("inode: %u\n", inode_num);
+
+    uint16_t mode = ext2_le16(inode.i_mode);
+
+    if ((mode & 0xF000) == 0x4000)
+        printf("type: directory\n");
+    else if ((mode & 0xF000) == 0x8000)
+        printf("type: file\n");
+
     printf("mode: 0x%04x\n", ext2_le16(inode.i_mode));
     printf("uid: %u\n", ext2_le16(inode.i_uid));
     printf("gid: %u\n", ext2_le16(inode.i_gid));

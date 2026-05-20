@@ -18,7 +18,7 @@ inode_cat: $(OBJ) src/inode_cat.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 test:
-	bash tests/run_basic.sh
+	bash tests/test.sh
 
 clean:
 	rm -f src/*.o sb_info inode_info inode_cat
