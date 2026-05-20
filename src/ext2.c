@@ -6,7 +6,7 @@
 #include <string.h>
 
 int ext2_read_superblock(int fd, struct ext2_superblock *sb) {
-    return read_bytes(fd, sb, sizeof(*sb), EXT2_SUPER_OFFSET);
+    return read_bytes(fd, sb, sizeof(*sb), (off_t)EXT2_SUPER_OFFSET);
 }
 
 uint32_t ext2_block_size(const struct ext2_superblock *sb) {
@@ -25,7 +25,7 @@ int ext2_read_group_desc(
 
     uint64_t offset = bgdt_offset + (uint64_t)group * sizeof(*gd);
 
-    return read_bytes(fd, gd, sizeof(*gd), offset);
+    return read_bytes(fd, gd, sizeof(*gd), (off_t)offset);
 }
 
 // INODE
@@ -36,7 +36,8 @@ int ext2_read_inode(
     uint32_t inode_num,
     struct ext2_inode *inode
 ) {
-    if (inode_num == 0)
+    uint32_t total_inodes = ext2_le32(sb->s_inodes_count);
+    if (inode_num == 0 || inode_num > total_inodes)
         return -1;
 
     uint32_t inodes_per_group = ext2_le32(sb->s_inodes_per_group);
@@ -53,7 +54,7 @@ int ext2_read_inode(
 
     uint64_t inode_offset = (uint64_t)inode_table * block_size + (uint64_t)index * inode_size;
 
-    return read_bytes(fd, inode, sizeof(*inode), (long)inode_offset);
+    return read_bytes(fd, inode, sizeof(*inode), (off_t)inode_offset);
 }
 
 // BLOCK
@@ -61,7 +62,7 @@ int ext2_read_inode(
 int ext2_read_block(int fd, const struct ext2_superblock *sb, uint32_t block_num, void *buf) {
     uint32_t block_size = ext2_block_size(sb);
     uint64_t offset = (uint64_t)block_num * block_size;
-    return read_bytes(fd, buf, block_size, (long)offset);
+    return read_bytes(fd, buf, block_size, (off_t)offset);
 }
 
 // INDIRECT HELPERS

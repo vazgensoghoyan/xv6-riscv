@@ -1,8 +1,9 @@
 #include "util.h"
 
 #include <unistd.h>
+#include <sys/types.h>
 
-int read_bytes(int fd, void *buf, size_t size, long offset) {
+int read_bytes(int fd, void *buf, size_t size, off_t offset) {
     if (lseek(fd, offset, SEEK_SET) < 0)
         return -1;
 

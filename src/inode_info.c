@@ -12,6 +12,7 @@ static void print_time(const char *label, uint32_t t) {
     time_t ts = (time_t)t;
     char buf[64];
     struct tm *tm = gmtime(&ts);
+    if (!tm) return;
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S UTC", tm);
     printf("%-20s %s\n", label, buf);
 }
@@ -31,16 +32,22 @@ static const char *type_str(uint16_t mode) {
 
 static void print_perm(uint16_t mode) {
     char p[11];
-    p[0] = (mode & 0xF000) == 0x4000 ? 'd' : (mode & 0xF000) == 0xA000 ? 'l' : '-';
-    p[1] = (mode & 0100) ? 'r' : '-';
+
+    p[0] = (mode & 0xF000) == 0x4000 ? 'd' :
+           (mode & 0xF000) == 0xA000 ? 'l' : '-';
+
+    p[1] = (mode & 0400) ? 'r' : '-';
     p[2] = (mode & 0200) ? 'w' : '-';
-    p[3] = (mode & 04000) ? 's' : (mode & 0400) ? 'x' : '-';
-    p[4] = (mode & 010)  ? 'r' : '-';
-    p[5] = (mode & 020)  ? 'w' : '-';
-    p[6] = (mode & 02000) ? 's' : (mode & 040) ? 'x' : '-';
-    p[7] = (mode & 01)   ? 'r' : '-';
-    p[8] = (mode & 02)   ? 'w' : '-';
-    p[9] = (mode & 01000) ? 't' : (mode & 04) ? 'x' : '-';
+    p[3] = (mode & 0100) ? 'x' : '-';
+
+    p[4] = (mode & 0040) ? 'r' : '-';
+    p[5] = (mode & 0020) ? 'w' : '-';
+    p[6] = (mode & 0010) ? 'x' : '-';
+
+    p[7] = (mode & 0004) ? 'r' : '-';
+    p[8] = (mode & 0002) ? 'w' : '-';
+    p[9] = (mode & 0001) ? 'x' : '-';
+
     p[10] = '\0';
     printf("%-20s %s  (0%o)\n", "permissions:", p, mode & 07777);
 }
