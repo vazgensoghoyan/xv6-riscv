@@ -6,10 +6,13 @@ OBJ = \
     src/ext2.o \
     src/util.o
 
-all: sbinfo
+all: sb_info inode_info
 
-sbinfo: $(OBJ) src/sbinfo.o
+sb_info: $(OBJ) src/sb_info.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+inode_info: $(OBJ) src/inode_info.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f src/*.o sbinfo
+	rm -f src/*.o sb_info inode_info

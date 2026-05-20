@@ -1,3 +1,4 @@
 *.img
-sbinfo
 *.o
+sb_info
+inode_info

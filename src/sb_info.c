@@ -6,12 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static uint32_t ext2_block_size(const struct ext2_superblock *sb) {
-    return 1024U << ext2_le32(sb->s_log_block_size);
-}
-
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "usage: %s <image>\n", argv[0]);
         return 1;
@@ -39,13 +34,9 @@ int main(int argc, char **argv)
     }
 
     printf("magic: 0x%04x\n", ext2_le16(sb.s_magic));
-
     printf("block size: %u\n", ext2_block_size(&sb));
-
     printf("inode size: %u\n", ext2_le16(sb.s_inode_size));
-
     printf("blocks per group: %u\n", ext2_le32(sb.s_blocks_per_group));
-
     printf("inodes per group: %u\n", ext2_le32(sb.s_inodes_per_group));
 
     close(fd);
