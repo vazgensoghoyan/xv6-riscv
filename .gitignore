@@ -1,7 +1,9 @@
-*.img
 *.o
 sb_info
 inode_info
 inode_cat
 inode_dir
 build/
+
+*.img
+ext2_mnt
