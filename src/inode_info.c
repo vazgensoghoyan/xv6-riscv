@@ -52,12 +52,16 @@ int main(int argc, char **argv) {
 
     uint16_t mode = ext2_le16(inode.i_mode);
 
-    if ((mode & 0xF000) == 0x4000)
-        printf("type: directory\n");
-    else if ((mode & 0xF000) == 0x8000)
-        printf("type: file\n");
+    printf("mode: 0%o\n", mode & 07777);
 
-    printf("mode: 0x%04x\n", ext2_le16(inode.i_mode));
+    printf("type: ");
+    switch (mode & 0xF000) {
+        case 0x4000: printf("directory\n"); break;
+        case 0x8000: printf("file\n"); break;
+        case 0xA000: printf("symlink\n"); break;
+        default: printf("other\n"); break;
+    }
+
     printf("uid: %u\n", ext2_le16(inode.i_uid));
     printf("gid: %u\n", ext2_le16(inode.i_gid));
     printf("size: %u\n", ext2_le32(inode.i_size));

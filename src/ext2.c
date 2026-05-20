@@ -148,21 +148,19 @@ int ext2_inode_foreach_block(
         }
 
         uint32_t per_indirect = block_size / 4;
-        uint32_t logical = 12;
 
         for (uint32_t i = 0; i < per_indirect; i++) {
-
             uint32_t indirect = ext2_le32(buf[i]);
 
             if (indirect == 0)
                 continue;
 
-            if (process_indirect(fd, sb, indirect, logical, cb, ctx) < 0) {
+            uint32_t base = 12 + i * per_indirect;
+
+            if (process_indirect(fd, sb, indirect, base, cb, ctx) < 0) {
                 free(buf);
                 return -1;
             }
-
-            logical += per_indirect;
         }
 
         free(buf);
