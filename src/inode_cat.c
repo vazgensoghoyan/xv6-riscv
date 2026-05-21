@@ -11,20 +11,56 @@ struct cat_ctx {
     int fd;
     const struct ext2_superblock *sb;
     uint64_t remaining;
+    uint32_t next_logical;
 };
+
+static int write_zeroes(uint64_t count) {
+    static uint8_t zero[4096];
+
+    while (count > 0) {
+        size_t chunk =
+            (count < sizeof(zero))
+                ? (size_t)count
+                : sizeof(zero);
+
+        size_t done = 0;
+
+        while (done < chunk) {
+            ssize_t rc = write(STDOUT_FILENO, zero + done, chunk - done);
+            if (rc <= 0) return -1;
+            done += (size_t)rc;
+        }
+
+        count -= chunk;
+    }
+
+    return 0;
+}
 
 static int cat_block(
     uint32_t logical_block,
     uint32_t physical_block,
     void *opaque
 ) {
-    (void)logical_block;
-
     struct cat_ctx *ctx = (struct cat_ctx *)opaque;
 
-    if (ctx->remaining == 0) return 0;
+    if (ctx->remaining == 0)
+        return 0;
 
     uint32_t block_size = ext2_block_size(ctx->sb);
+
+    while (ctx->next_logical < logical_block && ctx->remaining > 0) {
+        uint64_t hole_size =
+            (ctx->remaining < block_size)
+                ? ctx->remaining
+                : block_size;
+
+        if (write_zeroes(hole_size) < 0)
+            return -1;
+
+        ctx->remaining -= hole_size;
+        ctx->next_logical++;
+    }
 
     uint8_t *buf = malloc(block_size);
     if (!buf)
@@ -35,21 +71,33 @@ static int cat_block(
         return -1;
     }
 
-    uint64_t to_write = (ctx->remaining < block_size) ? ctx->remaining : block_size;
+    uint64_t to_write =
+        (ctx->remaining < block_size)
+            ? ctx->remaining
+            : block_size;
 
     uint64_t done = 0;
+
     while (done < to_write) {
-        ssize_t rc = write(STDOUT_FILENO, buf + done, (size_t)(to_write - done));
-        if (rc < 0) {
+        ssize_t rc = write(
+            STDOUT_FILENO,
+            buf + done,
+            to_write - done
+        );
+
+        if (rc <= 0) {
             free(buf);
             return -1;
         }
+
         done += (uint64_t)rc;
     }
 
-    ctx->remaining -= to_write;
-
     free(buf);
+
+    ctx->remaining -= to_write;
+    ctx->next_logical = logical_block + 1;
+
     return 0;
 }
 
@@ -105,12 +153,21 @@ int main(int argc, char **argv) {
         .fd = fd,
         .sb = &sb,
         .remaining = size,
+        .next_logical = 0,
     };
 
     if (ext2_inode_foreach_block(fd, &sb, &inode, cat_block, &ctx) < 0) {
         perror("foreach_block");
         close(fd);
         return 1;
+    }
+
+    if (ctx.remaining > 0) {
+        if (write_zeroes(ctx.remaining) < 0) {
+            perror("write");
+            close(fd);
+            return 1;
+        }
     }
 
     close(fd);

@@ -8,6 +8,7 @@
 
 // SUPERBLOCK
 
+#pragma pack(push, 1)
 struct ext2_superblock {
     uint32_t s_inodes_count;
     uint32_t s_blocks_count;
@@ -34,13 +35,14 @@ struct ext2_superblock {
     uint32_t s_rev_level;
     uint16_t s_def_resuid;
     uint16_t s_def_resgid;
-
     uint32_t s_first_ino;
     uint16_t s_inode_size;
 };
+#pragma pack(pop)
 
 // GROUP DESC
 
+#pragma pack(push, 1)
 struct ext2_group_desc {
     uint32_t bg_block_bitmap;
     uint32_t bg_inode_bitmap;
@@ -51,9 +53,11 @@ struct ext2_group_desc {
     uint16_t bg_pad;
     uint8_t  bg_reserved[12];
 };
+#pragma pack(pop)
 
 // INODE
 
+#pragma pack(push, 1)
 struct ext2_inode {
     uint16_t i_mode;
     uint16_t i_uid;
@@ -74,6 +78,7 @@ struct ext2_inode {
     uint32_t i_faddr;
     uint8_t  i_osd2[12];
 };
+#pragma pack(pop)
 
 // API
 
